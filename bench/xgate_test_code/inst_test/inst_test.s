@@ -183,6 +183,11 @@ _ERROR
 	STB     R3,(R2,#0)
 	STB     R3,(R2,#2) ; Send Message to clear Testbench interrupt register
 
+;	LDL	R2,#$04    ; Sent Message to Testbench Error Register
+;	LDH     R2,#$80
+;	LDL     R3,#$00
+;	STB     R3,(R2,#0)
+
         SIF
 	RTS
 
@@ -375,6 +380,11 @@ _START
 	RTS
 		
 _FAIL
+	LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$02
+	STB     R3,(R2,#0)
+
         SIF
 	RTS
 
@@ -583,6 +593,11 @@ _START2
 	RTS
 		
 _FAIL2
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$04
+	STB     R3,(R2,#0)
+
         SIF
 	RTS
 
@@ -747,6 +762,11 @@ _START3
 	RTS
 		
 _FAIL3
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$06
+	STB     R3,(R2,#0)
+
         SIF
 	RTS
 
@@ -871,6 +891,11 @@ _START4
 	RTS
 		
 _FAIL4
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$08
+	STB     R3,(R2,#0)
+
         SIF
 	RTS
 
@@ -1049,6 +1074,11 @@ _BGT_OK2
 
 
 _BR_ERR
+	LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$0a
+	STB     R3,(R2,#0)
+
         SIF
 	RTS
 
@@ -1091,6 +1121,11 @@ RET_SUB
 	RTS
 		
 _FAIL6
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$0c
+	STB     R3,(R2,#0)
+	
         SIF
 	RTS
 	
@@ -1245,6 +1280,11 @@ _END_7
 	RTS
 		
 _FAIL7
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$0e
+	STB     R3,(R2,#0)
+
         SIF
 	RTS
 	
@@ -1414,6 +1454,11 @@ _END_8
 	RTS
 		
 _FAIL8
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$10
+	STB     R3,(R2,#0)
+	
         SIF
 	RTS
 	
@@ -1601,6 +1646,11 @@ _END_9
 	RTS
 		
 _FAIL9
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$12
+	STB     R3,(R2,#0)
+	
         SIF
 	RTS
 	
@@ -1644,6 +1694,11 @@ _END_10
 	RTS
 		
 _FAIL10
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$14
+	STB     R3,(R2,#0)
+	
         SIF
 	RTS
 	

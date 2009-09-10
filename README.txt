@@ -1,4 +1,17 @@
 // 45678901234567890123456789012345678901234567890123456789012345678901234567890
+Sept 10,2009
+Added WISHBONE master bus submodule and some related top level signals but still
+  not much real functionality.
+  
+Added code to allow for memory access stalls.
+
+Upgraded testbench to insert memory wait states. Added more error detection
+  and summery.
+
+Improved instruction decoder. Still needs more work to remove redundant adders
+  to improve synthesis results.
+
+
 Sept 1, 2009
 This is a prerelease checkin and should be looked at as an incremental backup
 and not representative of what may be in the final release.
@@ -15,3 +28,4 @@ What's broken or unimplemented:
   WISHBONE master bus interface.
 
 User Documentation - 30% done
+

@@ -14,6 +14,7 @@ iverilog				\
 					\
 	$xgate/rtl/verilog/xgate_top.v	\
 	$xgate/rtl/verilog/xgate_wbs_bus.v	\
+	$xgate/rtl/verilog/xgate_wbm_bus.v	\
 	$xgate/rtl/verilog/xgate_regs.v	\
 	$xgate/rtl/verilog/xgate_risc.v	\
 	$xgate/rtl/verilog/xgate_irq_encode.v	\

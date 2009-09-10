@@ -54,7 +54,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                    wbs_stb_i,     // stobe/core select signal
   input                    wbs_cyc_i,     // valid bus cycle input
   input              [1:0] wbs_sel_i,     // Select byte in word bus transaction
-  // COP Control Signals
+  // XGATE Control Signals
   output reg               write_xgmctl, // Write Strobe for XGMCTL register
   output reg               write_xgisp74,// Write Strobe for XGISP74 register
   output reg               write_xgisp30,// Write Strobe for XGISP30 register

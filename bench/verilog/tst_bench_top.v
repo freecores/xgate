@@ -44,6 +44,7 @@
 module tst_bench_top();
 
   parameter MAX_CHANNEL = 127;    // Max XGATE Interrupt Channel Number
+  parameter STOP_ON_ERROR = 1'b0;
   
   //
   // wires && regs
@@ -59,6 +60,8 @@ module tst_bench_top();
   reg        wait_mode;
   reg        debug_mode;
   reg        scantestmode;
+  
+  reg       wbm_ack_i;
 
 
   wire [31:0] adr;
@@ -84,6 +87,11 @@ module tst_bench_top();
   wire [15:0] xgate_address;
   wire [15:0] write_mem_data;
   wire [15:0] read_mem_data;
+  
+  wire [15:0] wbm_dat_o;
+  wire [15:0] wbm_dat_i;
+  wire [15:0] wbm_adr_o;
+  wire [ 1:0] wbm_sel_o;
 
   wire scl, scl0_o, scl0_oen, scl1_o, scl1_oen;
   wire sda, sda0_o, sda0_oen, sda1_o, sda1_oen;
@@ -120,6 +128,16 @@ module tst_bench_top();
 
   parameter COP_CNTRL_COP_EVENT  = 16'h0100;  // COP Enable interrupt request
 
+  parameter CHECK_POINT = 16'h8000;
+  parameter CHANNEL_ACK = CHECK_POINT + 2;
+  parameter CHANNEL_ERR = CHECK_POINT + 4;
+  reg [ 7:0] check_point_reg;
+  reg [ 7:0] channel_ack_reg;
+  reg [ 7:0] channel_err_reg;
+  event check_point_wrt;
+  event channel_ack_wrt;
+  event channel_err_wrt;
+  reg [15:0] error_count;
 
   // initial values and testbench setup
   initial
@@ -132,6 +150,11 @@ module tst_bench_top();
       wait_mode = 0;
       debug_mode = 0;
       scantestmode = 0;
+      check_point_reg = 0;
+      channel_ack_reg = 0;
+      channel_err_reg = 0;
+      error_count = 0;
+      wbm_ack_i = 0;
       // channel_req = 0;
 
       `ifdef WAVES
@@ -152,52 +175,72 @@ module tst_bench_top();
   // generate clock
   always #20 mstr_test_clk = ~mstr_test_clk;
 
+  // Keep a count of how many clocks we've simulated
   always @(posedge mstr_test_clk)
-    vector = vector + 1;
+    vector <= vector + 1;
 
+  // Throw in some wait states from the memory
+  always @(posedge mstr_test_clk)
+//    if (((vector % 7) == 0) && (xgate.risc.cpu_state == 4'b0001))
+//    if (((vector % 5) == 0) && (xgate.risc.load_next_inst))
+    if ((vector % 5) == 0)
+      wbm_ack_i <= 1'b0;
+    else 
+      wbm_ack_i <= 1'b1;
 
   // Write memory interface to RAM
   always @(posedge mstr_test_clk)
     begin
-      if (write_mem_strb_l && !write_mem_strb_h)
-	ram_8[xgate_address] = write_mem_data[7:0];
-      if (write_mem_strb_h && !write_mem_strb_l)
-	ram_8[xgate_address] = write_mem_data[7:0];
-      if (write_mem_strb_h && write_mem_strb_l)
+      if (write_mem_strb_l && !write_mem_strb_h && wbm_ack_i)
+	ram_8[xgate_address] <= write_mem_data[7:0];
+      if (write_mem_strb_h && !write_mem_strb_l && wbm_ack_i)
+	ram_8[xgate_address] <= write_mem_data[7:0];
+      if (write_mem_strb_h && write_mem_strb_l && wbm_ack_i)
 	begin
-	  ram_8[xgate_address] = write_mem_data[15:8];
-	  ram_8[xgate_address+1] = write_mem_data[7:0];
+	  ram_8[xgate_address]   <= write_mem_data[15:8];
+	  ram_8[xgate_address+1] <= write_mem_data[7:0];
 	end
     end
 
-  parameter CHECK_POINT = 16'h8000;
-  parameter CHANNEL_ACK = CHECK_POINT + 2;
-  parameter CHANNEL_ERR = CHECK_POINT + 4;
-  reg [ 7:0] check_point_reg;
-  reg [ 7:0] channel_ack_reg;
-  reg [ 7:0] channel_err_reg;
   // Special Memory Mapped Testbench Registers
   always @(posedge mstr_test_clk or negedge rstn)
     begin
       if (!rstn)
 	begin
-	  check_point_reg = 0;
-	  channel_ack_reg = 0;
-	  channel_err_reg = 0;
+	  check_point_reg <= 0;
+	  channel_ack_reg <= 0;
+	  channel_err_reg <= 0;
 	end
-      if (write_mem_strb_l && (xgate_address == CHECK_POINT))
-	check_point_reg = write_mem_data[7:0];
-      if (write_mem_strb_l && (xgate_address == CHANNEL_ACK))
-	channel_ack_reg = write_mem_data[7:0];
-      if (write_mem_strb_l && (xgate_address == CHANNEL_ERR))
-	channel_err_reg = write_mem_data[7:0];
+      if (write_mem_strb_l && wbm_ack_i && (xgate_address == CHECK_POINT))
+	begin
+	  check_point_reg <= write_mem_data[7:0];
+	  -> check_point_wrt;
+	end
+      if (write_mem_strb_l && wbm_ack_i && (xgate_address == CHANNEL_ACK))
+	begin
+	  channel_ack_reg <= write_mem_data[7:0];
+	  -> channel_ack_wrt;
+	end
+      if (write_mem_strb_l && wbm_ack_i && (xgate_address == CHANNEL_ERR))
+	begin
+	  channel_err_reg <= write_mem_data[7:0];
+	  -> channel_err_wrt;
+	end
     end
 
-  always @check_point_reg
+  always @check_point_wrt
     $display("\nSoftware Checkpoint #%d -- at vector=%d\n", check_point_reg, vector);
 
+  always @channel_err_wrt
+    begin
+      $display("\n ------ !!!!! Software Error #%d -- at vector=%d\n  -------", channel_err_reg, vector);
+      error_count = error_count + 1;
+      if (STOP_ON_ERROR == 1'b1)
+	wrap_up;
+    end
+
   wire [ 6:0] current_active_channel = xgate.risc.xgchid;
-  always @channel_ack_reg
+  always @channel_ack_wrt
     clear_channel(current_active_channel);
       
       
@@ -242,33 +285,40 @@ module tst_bench_top();
   
   assign read_mem_data = {ram_8[xgate_address], ram_8[xgate_address+1]};
 
-  // hookup wishbone_COP_master core - Parameters take all default values
+  // hookup XGATE core - Parameters take all default values
   //  Async Reset, 16 bit Bus, 16 bit Granularity
   xgate_top  #(.SINGLE_CYCLE(1'b0),
 	       .MAX_CHANNEL(MAX_CHANNEL))    // Max XGATE Interrupt Channel Number
           xgate(
-          // wishbone interface
-          .wbs_clk_i(mstr_test_clk),
-          .wbs_rst_i(1'b0),         // sync_reset
-          .arst_i(rstn),           // rstn
-          .wbs_adr_i(adr[4:0]),
-          .wbs_dat_i(dat_o),
-          .wbs_dat_o(dat0_i),
-          .wbs_we_i(we),
-          .wbs_stb_i(stb0),
-          .wbs_cyc_i(cyc),
+          // Wishbone slave interface
+          .wbs_clk_i( mstr_test_clk ),
+          .wbs_rst_i( 1'b0 ),         // sync_reset
+          .arst_i( rstn ),            // async resetn
+          .wbs_adr_i( adr[4:0] ),
+          .wbs_dat_i( dat_o ),
+          .wbs_dat_o( dat0_i ),
+          .wbs_we_i( we ),
+          .wbs_stb_i( stb0 ),
+          .wbs_cyc_i( cyc ),
           .wbs_sel_i( 2'b11 ),
-          .wbs_ack_o(ack_1),
+          .wbs_ack_o( ack_1 ),
+
+          // Wishbone master Signals
+          .wbm_dat_o( write_mem_data ),
+          .wbm_we_o( wbm_we_o ),
+          .wbm_stb_o( wbm_stb_o ),
+          .wbm_cyc_o( wbm_cyc_o ),
+          .wbm_sel_o( wbm_sel_o ),
+          .wbm_adr_o( xgate_address ),
+          .wbm_dat_i( read_mem_data ),
+          .wbm_ack_i( wbm_ack_i ),
 
           .xgif( xgif ),             // XGATE Interrupt Flag
           .risc_clk( mstr_test_clk ),
-          .xgswt( xgswt),
+          .xgswt( xgswt ),
 	  .chan_req_i( {channel_req[127:40], xgswt, channel_req[31:0]} ),
-          .xgate_address( xgate_address ),
 	  .write_mem_strb_l( write_mem_strb_l ),
 	  .write_mem_strb_h( write_mem_strb_h ),
-          .write_mem_data( write_mem_data ),
-          .read_mem_data( read_mem_data ),
           .scantestmode( scantestmode )
   );
 
@@ -359,8 +409,7 @@ initial
       repeat(20) @(posedge mstr_test_clk);
 
       dump_ram(0);
-      $display("\nTestbench done at vector=%d\n", vector);
-      $finish;
+      wrap_up;
       //
       // program core
       //
@@ -369,8 +418,7 @@ initial
       
       repeat(10) @(posedge mstr_test_clk);
 
-      $display("\nTestbench done at vector=%d\n", vector);
-      $finish;
+      wrap_up;
   end
 
 // Poll for XGATE Interrupt set
@@ -551,6 +599,18 @@ task dump_ram;
 	$write("\n");
 	end
 
+  end
+endtask
+
+task wrap_up;
+  begin
+    $display("\nSimulation Finished!! - vector =%d", vector);
+    if (error_count == 0)
+      $display("Simulation Passed");
+    else
+      $display("Simulation Failed");
+
+    $finish;
   end
 endtask
 
