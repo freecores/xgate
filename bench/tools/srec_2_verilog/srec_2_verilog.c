@@ -1,18 +1,22 @@
-/* Verilog ROM Generator/Programer  Rev B March 12 1996  Bob Hayes       */
-/* Started work on S-Record Writer Nov. 6, 1996 -- working except parity */
+/* Verilog ROM Generator/Programer  Rev B March 12 1996  Bob Hayes            */
+/* Started work on S-Record Writer Nov. 6, 1996 -- working except parity      */
+
+/* Rev 1.1 Sept. 11, 2009 - Bob Hayes - Update to create output file name     */
+/*   from input file name by changing extension to .v                         */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 FILE * open_read_file (char *);
-FILE * open_write_file (void);
+FILE * open_write_file (char *);
 int Get_ROM_Byte (FILE *, int *);
 void Make_Ref_Mem (FILE *, FILE *);
 
 
-/* *************************************************************************************** */
+/* ************************************************************************** */
 
-/* *************************************************************************************** */
+/* ************************************************************************** */
 int main(int argc, char *argv[])
 {
     int i, j, k = 0;
@@ -30,7 +34,7 @@ int main(int argc, char *argv[])
     }
 
     file1 = open_read_file(argv[1]);
-    file2 = open_write_file(); 
+    file2 = open_write_file(argv[1]); 
     Make_Ref_Mem(file1, file2);
     fclose(file1);
     fclose(file2);
@@ -40,11 +44,11 @@ int main(int argc, char *argv[])
 }
 
 
-/* *************************************************************************************** */
-/* 456789012345678901234567890123456789012345678901234567890123456789012345678901234567890 */
-/* *************************************************************************************** */
+/* ************************************************************************** */
+/* 45678901234567890123456789012345678901234567890123456789012345678901234567 */
+/* ************************************************************************** */
 
-/* *************************************************************************************** */
+/* ************************************************************************** */
 int Get_ROM_Byte (FILE *f1, int *S_Addr)
 {
     static int Addr = 0, Count = 0, Sum = 0, Flag = 0;
@@ -177,7 +181,7 @@ void Make_Ref_Mem (FILE *f1, FILE *f2)
     return;
 }
 
-/* *************************************************************************************** */
+/* ************************************************************************** */
 FILE * open_read_file (char file_name[80])
 {
     char c;
@@ -193,24 +197,29 @@ FILE * open_read_file (char file_name[80])
     return file_num;
 }
 
-/* *************************************************************************************** */
-FILE * open_write_file (void)
+/* ************************************************************************** */
+FILE * open_write_file (char file_name[80])
 {
     FILE *file_num;
-    char file_name[80], c;
+    char c, out_file_name[80];
+    int i, j, k;
 
-    file_num = NULL;
-    while (file_num == NULL)
+    i = strlen(file_name);
+    strcpy(out_file_name, file_name);
+    while (out_file_name[i] != '.')
     {
-        printf("\nEnter the name of an NON-existing file => ");
-        scanf("%s", file_name);
-        c = getchar();                       /* finish reading the line */
-        file_num = fopen(file_name, "w");
-        if (file_num == NULL)
-        {
-            printf("\nError in opening write file!!\n");
-        }
+      out_file_name[i] = 0;
+      i--;
     }
+    strcat(out_file_name, "v");
+    
+    file_num = NULL;
+    printf("Output File Name => %s\n", out_file_name);
+    file_num = fopen(out_file_name, "w");
+    if (file_num == NULL)
+      {
+         printf("\nError in opening write file!!\n");
+      }
     printf("\n");
     return file_num;
 }
