@@ -163,8 +163,6 @@
 	ORG	$2000 ; with comment
 
 V_PTR	EQU	123
-SPI0    EQU     $D0
-SPI_CR  EQU     5
 
         DC.W	BACK_
 	DS.W	8
@@ -177,17 +175,11 @@ SPI_CR  EQU     5
 ;   Place where undefined interrupts go
 ;-------------------------------------------------------------------------------
 _ERROR
-	LDL	R2,#$00    ; Sent Message to Testbench Check Point Register
+        LDL	R2,#$04    ; Sent Message to Testbench Error Register
 	LDH     R2,#$80
 	LDL     R3,#$ff
 	STB     R3,(R2,#0)
-	STB     R3,(R2,#2) ; Send Message to clear Testbench interrupt register
-
-;	LDL	R2,#$04    ; Sent Message to Testbench Error Register
-;	LDH     R2,#$80
-;	LDL     R3,#$00
-;	STB     R3,(R2,#0)
-
+	
         SIF
 	RTS
 
