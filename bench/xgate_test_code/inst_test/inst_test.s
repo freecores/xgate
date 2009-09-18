@@ -195,7 +195,7 @@ _START
 	STB     R3,(R2,#2) ; Send Message to clear Testbench interrupt register
 
 
-	; Test Bit Field Fing First One
+	; Test Bit Field Find First One
 	LDL     R5,#$01  ; R5=$0001
 	LDH     R5,#$4f  ; R5=$4f01
 	BFFO	R4,R5    
@@ -1260,7 +1260,6 @@ _START7
 	SUB     R0,R1,R0   ; Compare R1 to R0(Zero)
 	BNE     _FAIL7
 
-;	BRA	_END_7
 
 _END_7	
         LDL	R2,#$00    ; Sent Message to Testbench Check Point Register
