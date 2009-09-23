@@ -1,4 +1,19 @@
 // 45678901234567890123456789012345678901234567890123456789012345678901234567890
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
+Sept 23,2009
+BRK instruction working. Single Step Command in debug mode working.
+Software error interrupt added.
+
+Updates to testbench.
+New assembly code directory: debug_test
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Sept 10,2009
 Added WISHBONE master bus submodule and some related top level signals but still
   not much real functionality.
@@ -11,6 +26,9 @@ Upgraded testbench to insert memory wait states. Added more error detection
 Improved instruction decoder. Still needs more work to remove redundant adders
   to improve synthesis results.
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
 
 Sept 1, 2009
 This is a prerelease checkin and should be looked at as an incremental backup
