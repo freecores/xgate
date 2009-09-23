@@ -57,7 +57,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   output reg                 overflow_flag,
   output reg          [ 6:0] xgchid,
   output reg [MAX_CHANNEL:0] xgif,          // XGATE Interrupt Flag
+  output                     xg_sw_irq,     // Xgate Software interrupt
   output              [ 7:0] host_semap,    // Semaphore status for host
+  output reg                 debug_active,  // Latch to control debug mode in the RISC state machine
 
 
   input      [15:0] read_mem_data,
@@ -71,6 +73,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input             xgss,           // XGATE Single Step
   input      [15:1] xgvbr,          // XGATE vector Base Address Register
   input      [ 6:0] int_req,        // Encoded interrupt request
+  input             xgie,           // XGATE Interrupt Enable
+  input             brk_irq_ena,    // Enable BRK instruction to generate interrupt
   input             write_xgsem,    // Write Strobe for XGSEM register
   input             write_xgccr,    // Write Strobe for XGATE Condition Code Register
   input             write_xgpc,     // Write Strobe for XGATE Program Counter
@@ -81,6 +85,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input             write_xgr3,     // Write Strobe for XGATE Data Register R3
   input             write_xgr2,     // Write Strobe for XGATE Data Register R2
   input             write_xgr1,     // Write Strobe for XGATE Data Register R1
+  input             xgsweif_c,      // Clear Software Flag
   input             clear_xgif_7,   // Strobe for decode to clear interrupt flag bank 7
   input             clear_xgif_6,   // Strobe for decode to clear interrupt flag bank 6
   input             clear_xgif_5,   // Strobe for decode to clear interrupt flag bank 5
@@ -100,43 +105,50 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   parameter [3:0]      //synopsys enum state_info
        IDLE    = 4'b0000,      // waiting for interrupt
        CONT    = 4'b0001,      // Instruction processing state, first state
-       DEBUG   = 4'b0011,      //
-       BOOT_1  = 4'b0100,      //
-       BOOT_2  = 4'b0101,      //
-       BOOT_3  = 4'b0110,      //
-       S_STALL = 4'b0111,      // Simple Stall while updating PC after change of flow
-       W_STALL = 4'b1000,      // Stall while doing memory word read access
-       B_STALL = 4'b1001;      // Stall while doing memory byte read access
-  
-  
+       S_STALL = 4'b0010,      // Simple Stall while updating PC after change of flow
+       W_STALL = 4'b0011,      // Stall while doing memory word read access
+       B_STALL = 4'b0100,      // Stall while doing memory byte read access
+       BREAK   = 4'b0101,      // Stop in this state after BRK instruction
+       BREAK_2 = 4'b0110,      // Advance PC after Single Step command
+       LD_INST = 4'b0111,      // Load Instruction in Debug mode
+       DEBUG   = 4'b1000,      // Stop in this state while waiting for debug commands
+       BOOT_1  = 4'b1001,      //
+       BOOT_2  = 4'b1010,      //
+       BOOT_3  = 4'b1011;      //
+
+
   // Semaphore states
   parameter [1:0] NO_LOCK = 2'b00,
-		  RISC_LOCK = 2'b10,
-		  HOST_LOCK = 2'b11;
-		  
-     
-  reg  [ 3:0] cpu_state;
+                  RISC_LOCK = 2'b10,
+                  HOST_LOCK = 2'b11;
+
+
+  reg  [ 3:0] cpu_state;         // State register for instruction processing
   reg  [ 3:0] next_cpu_state;    // Pseudo Register,
   reg         load_next_inst;    // Pseudo Register,
-  reg  [15:0] program_counter;
+  reg  [15:0] program_counter;   // Program Counter register
   reg  [15:0] next_pc;           // Pseudo Register,
   reg  [15:0] alu_result;        // Pseudo Register,
-  reg  [15:0] op_code;
+  reg  [15:0] op_code;           // Register for instruction being executed
   reg         ena_rd_low_byte;   // Pseudo Register,
   reg         ena_rd_high_byte;  // Pseudo Register,
-  
-  reg         data_access;   // Pseudo Register, RAM access in proccess
-  reg         data_write;    // Pseudo Register, RAM access is write operation
-  reg         data_word_op;  // Pseudo Register, RAM access operation is 16 bits(word)
-  reg  [15:0] data_address;  // Pseudo Register, Address for RAM data read or write
-  reg  [15:0] load_data;
-  
-  reg  [ 6:0] set_irq_flag;
+
+  reg         data_access;    // Pseudo Register, RAM access in proccess
+  reg         data_write;     // Pseudo Register, RAM access is write operation
+  reg         data_word_op;   // Pseudo Register, RAM access operation is 16 bits(word)
+  reg  [15:0] data_address;   // Pseudo Register, Address for RAM data read or write
+  reg  [15:0] load_data;      // Data captured from WISHBONE Master bus for Load instructions
+
+  reg  [ 6:0] set_irq_flag;   // Pseudo Register, pulse for setting irq output register
 
   reg         next_zero;      // Pseudo Register,
   reg         next_negative;  // Pseudo Register,
   reg         next_carry;     // Pseudo Register,
   reg         next_overflow;  // Pseudo Register,
+  
+  reg         op_code_error;  // Pseudo Register,
+  reg         software_error; // OP Code error, Address Error, BRK Error
+  wire        addr_error;     // Decode Addressing error
 
   reg         set_semaph;     // Pseudo Register,
   reg         clear_semaph;   // Pseudo Register,
@@ -144,42 +156,56 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg  [ 7:0] semap_risc_bit; // Pseudo Register,
   wire [ 7:0] risc_semap;     // Semaphore status bit for RISC
   wire        semaph_stat;    // Return Status of Semaphore bit
-  
+
   reg  [15:0] rd_data;        // Pseudo Register,
   reg  [15:0] rs1_data;       // Pseudo Register,
   reg  [15:0] rs2_data;       // Pseudo Register,
-  
+
   wire [ 2:0] wrt_reg_sel;
-  reg         sel_rd_field;  // Pseudo Register,
-  reg         wrt_sel_xgr1;  // Pseudo Register,
-  reg         wrt_sel_xgr2;  // Pseudo Register,
-  reg         wrt_sel_xgr3;  // Pseudo Register,
-  reg         wrt_sel_xgr4;  // Pseudo Register,
-  reg         wrt_sel_xgr5;  // Pseudo Register,
-  reg         wrt_sel_xgr6;  // Pseudo Register,
-  reg         wrt_sel_xgr7;  // Pseudo Register,
-  
+  reg         sel_rd_field;   // Pseudo Register,
+  reg         wrt_sel_xgr1;   // Pseudo Register,
+  reg         wrt_sel_xgr2;   // Pseudo Register,
+  reg         wrt_sel_xgr3;   // Pseudo Register,
+  reg         wrt_sel_xgr4;   // Pseudo Register,
+  reg         wrt_sel_xgr5;   // Pseudo Register,
+  reg         wrt_sel_xgr6;   // Pseudo Register,
+  reg         wrt_sel_xgr7;   // Pseudo Register,
+
   reg [MAX_CHANNEL:0] xgif_d;
-  
+
   reg  [15:0] shift_in;
   wire [15:0] shift_out;
   wire        shift_rollover;
   reg         shift_left;
   reg  [ 4:0] shift_ammount;
   reg  [15:0] shift_filler;
-  
+
   wire        start_thread;
 
-  
-    
+  wire        cpu_is_idle;   // Processor is in the IDLE state
+  wire        perif_wrt_ena; // Enable for Salve writes to CPU registers
+
+  reg         xgss_edge;     // Flop for edge detection
+  wire        single_step;   // Pulse to trigger a single instruction execution in debug mode
+  reg         brk_set_dbg;   // Pulse to set debug_active from instruction decoder
+  reg         xgdbg_dly;     //
+  wire        xgdbg_negedge; //
+
+
   assign xgate_address = data_access ? data_address : program_counter;
   
+  // Generate an address for an op code fetch from an odd address or a word Load/Store from/to an odd address.
+  assign addr_error = xgate_address[0] && (load_next_inst || (data_access && data_word_op));
+
   assign write_mem_strb_l = data_access && data_write && (data_word_op || !data_address[0]);
   assign write_mem_strb_h = data_access && data_write && (data_word_op ||  data_address[0]);
   assign write_mem_data   = (write_mem_strb_l || write_mem_strb_h) ? rd_data : 16'b0;
-  
+
   assign start_thread = xge && (|int_req);
-  
+
+  assign cpu_is_idle = (cpu_state == IDLE);
+  assign perif_wrt_ena = (cpu_is_idle && ~xge) || xgdbg;
+
   // Decode register select for RD and RS
   always @*
     begin
@@ -206,7 +232,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       wrt_sel_xgr4 = 1'b0;
       wrt_sel_xgr5 = 1'b0;
       wrt_sel_xgr6 = 1'b0;
-      wrt_sel_xgr7 = 1'b0;      
+      wrt_sel_xgr7 = 1'b0;
       case (wrt_reg_sel)
         3'b001 : wrt_sel_xgr1 = mem_req_ack;
         3'b010 : wrt_sel_xgr2 = mem_req_ack;
@@ -258,6 +284,42 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
         end
     end
 
+  //  Software Error Interrupt Latch
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      software_error <= 1'b0;
+    else
+      software_error <= addr_error || op_code_error || 
+                        (brk_set_dbg && brk_irq_ena) || (software_error && !xgsweif_c);
+			
+  assign xg_sw_irq = software_error && xgie;
+
+  //  Edge detect xgdbg
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      xgdbg_dly  <= 1'b0;
+    else
+      xgdbg_dly  <= xgdbg;
+
+  assign xgdbg_negedge = !xgdbg && xgdbg_dly;
+
+  //  Latch the debug state, set by eather xgdb or BRK instructions
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      debug_active  <= 1'b0;
+    else
+      debug_active  <= !xgdbg_negedge && (xgdbg || brk_set_dbg || op_code_error || debug_active);
+
+  //  Convert xgss (Single Step Pulse) to a one risc_clk wide pulse
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      xgss_edge  <= 1'b0;
+    else
+      xgss_edge  <= xgss;
+
+  assign single_step = xgss && !xgss_edge;
+
+
   //  CPU State Register
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
@@ -271,13 +333,13 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       op_code  <= 16'h0000;
     else
       op_code  <= (load_next_inst && mem_req_ack) ? read_mem_data : op_code;
-      
+
   //  Active Channel Latch
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
       xgchid  <= 7'b0;
     else
-      xgchid  <= ((cpu_state == IDLE) && mem_req_ack) ? int_req : xgchid;
+      xgchid  <= (cpu_is_idle && mem_req_ack) ? int_req : xgchid;
 
   //  CPU Read Data Buffer Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -291,7 +353,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       program_counter  <= 16'h0000;
     else
-      program_counter  <= mem_req_ack ? next_pc : program_counter;
+      program_counter  <= (write_xgpc && perif_wrt_ena) ? perif_data : (mem_req_ack ? next_pc : program_counter);
 
   //  ALU Flag Bits
   always @(posedge risc_clk or negedge async_rst_b)
@@ -304,42 +366,38 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       end
     else
       begin
-        carry_flag    <= write_xgccr ? perif_data[0] : (mem_req_ack ? next_carry : carry_flag);
-        overflow_flag <= write_xgccr ? perif_data[1] : (mem_req_ack ? next_overflow : overflow_flag);
-        zero_flag     <= write_xgccr ? perif_data[2] : (mem_req_ack ? next_zero : zero_flag);
-        negative_flag <= write_xgccr ? perif_data[3] : (mem_req_ack ? next_negative : negative_flag);
+        carry_flag    <= (write_xgccr && perif_wrt_ena) ? perif_data[0] : (mem_req_ack ? next_carry : carry_flag);
+        overflow_flag <= (write_xgccr && perif_wrt_ena) ? perif_data[1] : (mem_req_ack ? next_overflow : overflow_flag);
+        zero_flag     <= (write_xgccr && perif_wrt_ena) ? perif_data[2] : (mem_req_ack ? next_zero : zero_flag);
+        negative_flag <= (write_xgccr && perif_wrt_ena) ? perif_data[3] : (mem_req_ack ? next_negative : negative_flag);
       end
 
   //  Interrupt Flag next value
   always @*
-      begin
-        j = 0;
-        i = 0;
-        while (j <= MAX_CHANNEL)
-          begin
-            if (j < 16)
-              xgif_d[j]  = (~(clear_xgif_0 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (15 < j < 32)
-              xgif_d[j]  = (~(clear_xgif_1 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (31 < j < 48)
-              xgif_d[j]  = (~(clear_xgif_2 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (47 < j < 64)
-              xgif_d[j]  = (~(clear_xgif_3 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (63 < j < 80)
-              xgif_d[j]  = (~(clear_xgif_4 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (79 < j < 96)
-              xgif_d[j]  = (~(clear_xgif_5 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (95 < j < 112)
-              xgif_d[j]  = (~(clear_xgif_6 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (111 < j < 128)
-              xgif_d[j]  = (~(clear_xgif_7 && clear_xgif_data[i]) && xgif[j]) || (set_irq_flag == j);
-            if (i < 15)
-              i = i + 1;
-            else
-              i = 0;
-            j = j + 1;
-          end
-      end
+    begin
+      j = 0;
+      while (j <= MAX_CHANNEL)
+        begin
+         xgif_d[j]  = xgif[j] || (set_irq_flag == j);
+         j = j + 1;
+        end
+        if (clear_xgif_0)
+          xgif_d[15: 0]  = ~clear_xgif_data & xgif[15: 0];
+        if (clear_xgif_1)
+          xgif_d[31:16]  = ~clear_xgif_data & xgif[31:16];
+        if (clear_xgif_2)
+          xgif_d[47:32]  = ~clear_xgif_data & xgif[47:32];
+        if (clear_xgif_3)
+          xgif_d[63:48]  = ~clear_xgif_data & xgif[63:48];
+        if (clear_xgif_4)
+          xgif_d[79:64]  = ~clear_xgif_data & xgif[79:64];
+        if (clear_xgif_5)
+          xgif_d[95:80]  = ~clear_xgif_data & xgif[95:80];
+        if (clear_xgif_6)
+          xgif_d[111:96]  = ~clear_xgif_data & xgif[111:96];
+        if (clear_xgif_7)
+          xgif_d[127:112]  = ~clear_xgif_data & xgif[127:112];
+    end
 
   //  Interrupt Flag Registers
   always @(posedge risc_clk or negedge async_rst_b)
@@ -363,25 +421,25 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       end
     else
       begin
-        xgr1 <= write_xgr1 ? perif_data :
+        xgr1 <= (write_xgr1 && perif_wrt_ena) ? perif_data :
                 {((wrt_sel_xgr1 && ena_rd_high_byte) ? alu_result[15:8] : xgr1[15:8]),
                  ((wrt_sel_xgr1 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr1[ 7:0])};
-        xgr2 <= write_xgr2 ? perif_data :
+        xgr2 <= (write_xgr2 && perif_wrt_ena) ? perif_data :
                 {((wrt_sel_xgr2 && ena_rd_high_byte) ? alu_result[15:8] : xgr2[15:8]),
                  ((wrt_sel_xgr2 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr2[ 7:0])};
-        xgr3 <= write_xgr3 ? perif_data :
+        xgr3 <= (write_xgr3 && perif_wrt_ena) ? perif_data :
                 {((wrt_sel_xgr3 && ena_rd_high_byte) ? alu_result[15:8] : xgr3[15:8]),
                  ((wrt_sel_xgr3 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr3[ 7:0])};
-        xgr4 <= write_xgr4 ? perif_data :
+        xgr4 <= (write_xgr4 && perif_wrt_ena) ? perif_data :
                 {((wrt_sel_xgr4 && ena_rd_high_byte) ? alu_result[15:8] : xgr4[15:8]),
                  ((wrt_sel_xgr4 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr4[ 7:0])};
-        xgr5 <= write_xgr5 ? perif_data :
+        xgr5 <= (write_xgr5 && perif_wrt_ena) ? perif_data :
                 {((wrt_sel_xgr5 && ena_rd_high_byte) ? alu_result[15:8] : xgr5[15:8]),
                  ((wrt_sel_xgr5 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr5[ 7:0])};
-        xgr6 <= write_xgr6 ? perif_data :
+        xgr6 <= (write_xgr6 && perif_wrt_ena) ? perif_data :
                 {((wrt_sel_xgr6 && ena_rd_high_byte) ? alu_result[15:8] : xgr6[15:8]),
                  ((wrt_sel_xgr6 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr6[ 7:0])};
-        xgr7 <= write_xgr7 ? perif_data :
+        xgr7 <= (write_xgr7 && perif_wrt_ena) ? perif_data :
                 {((wrt_sel_xgr7 && ena_rd_high_byte) ? alu_result[15:8] : xgr7[15:8]),
                  ((wrt_sel_xgr7 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr7[ 7:0])};
       end
@@ -402,8 +460,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       ena_rd_low_byte  = 1'b0;
       ena_rd_high_byte = 1'b0;
 
-      next_cpu_state = CONT;
+      next_cpu_state = debug_active ? LD_INST : CONT;
       load_next_inst = 1'b1;
+      // next_pc        = debug_active ? program_counter : program_counter + 16'h0002;
       next_pc        = program_counter + 16'h0002;
 
       next_zero      = zero_flag;
@@ -411,21 +470,24 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       next_carry     = carry_flag;
       next_overflow  = overflow_flag;
 
+      brk_set_dbg    = 1'b0;
+      op_code_error  = 1'b0;
+
       alu_result     = 16'h0000;
       sel_rd_field   = 1'b1;
-      
+
       data_access    = 1'b0;
       data_word_op   = 1'b0;
-      data_write     = 1'b0; 
+      data_write     = 1'b0;
       data_address   = 16'h0000;
 
       shift_left     = 1'b0;
       shift_ammount  = 5'b0_0000;
       shift_filler   = 16'h0000;
       shift_in       = rd_data;
-      
+
       set_irq_flag   = 7'b0;
-      
+
       set_semaph    = 1'b0;
       clear_semaph  = 1'b0;
       semaph_risc   = 3'b0;
@@ -474,18 +536,39 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            alu_result       = load_data;
          end
 
-      {DEBUG, 16'b????????????????} :
+      {BREAK, 16'b????????????????} :
          begin
-           next_cpu_state = xge ? DEBUG : IDLE;
+           next_cpu_state = xge ? ((single_step || !debug_active) ? BREAK_2 : BREAK) : IDLE;
            load_next_inst = 1'b0;
            next_pc        = program_counter;
          end
 
-      // Pause here while program counter change of flow or memory write access
+      {BREAK_2, 16'b????????????????} :
+         begin
+           next_cpu_state = LD_INST;
+           load_next_inst = 1'b0;
+           next_pc        = program_counter + 2;
+         end
+
+      {LD_INST, 16'b????????????????} :
+         begin
+           next_cpu_state = DEBUG;
+           load_next_inst = 1'b1;
+           next_pc        = program_counter;
+         end
+
+      {DEBUG, 16'b????????????????} :
+         begin
+           next_cpu_state = xge ? ((single_step || !debug_active) ? CONT : DEBUG) : IDLE;
+           load_next_inst = 1'b0;
+           next_pc        = program_counter;
+         end
+
+      // Pause here for program counter change of flow or memory write access
       //  Load next instruction and increment PC
+      // Default next_cpu_state is CONT
       {S_STALL, 16'b????????????????} :
          begin
-           next_cpu_state = CONT;
          end
 
       // Pause here for memory read word access
@@ -514,9 +597,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - PAff
       {CONT, 16'b0000000000000000} :
          begin
-           next_cpu_state   = DEBUG;
-           next_pc          = program_counter;
+           next_cpu_state   = BREAK;
+           next_pc          = program_counter - 16'h0002;
            load_next_inst   = 1'b0;
+           brk_set_dbg      = 1'b1;
          end
 
       // Instruction = NOP, Op Code =  0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0
@@ -727,7 +811,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            shift_ammount  = {|rs1_data[15:4], rs1_data[3:0]};
            shift_filler   = {16{rd_data[15]}};
-           
+
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = shift_out;
@@ -858,7 +942,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            shift_ammount  = {!(|op_code[7:4]), op_code[7:4]};
            shift_filler   = {16{rd_data[15]}};
-           
+
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = shift_out;
@@ -877,7 +961,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            shift_left     = 1'b1;
            shift_ammount  = {!(|op_code[7:4]), op_code[7:4]};
            shift_filler   = {16{carry_flag}};
-           
+
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = shift_out;
@@ -914,7 +998,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            shift_left     = 1'b1;
            shift_ammount  = {!(|op_code[7:4]), op_code[7:4]};
            shift_filler   = 16'h0000;
-           
+
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = shift_out;
@@ -932,7 +1016,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            shift_ammount  = {!(|op_code[7:4]), op_code[7:4]};
            shift_filler   = 16'h0000;
-           
+
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = shift_out;
@@ -951,7 +1035,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            shift_left     = 1'b1;
            shift_ammount  = {1'b0, op_code[7:4]};
            shift_filler   = rd_data;
-           
+
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = shift_out;
@@ -968,7 +1052,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            shift_ammount  = {1'b0, op_code[7:4]};
            shift_filler   = rd_data;
-           
+
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = shift_out;
@@ -1441,7 +1525,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            data_access      = 1'b1;
            data_address     = rs1_data + rs2_data;
            alu_result       = rs2_data + 16'h0001;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1462,7 +1546,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            data_address     = rs1_data + rs2_data;
            data_word_op     = 1'b1;
            alu_result       = rs2_data + 16'h0002;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1481,7 +1565,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            data_write       = 1'b1;
            data_address     = rs1_data + rs2_data;
            alu_result       = rs2_data + 16'h0001;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1501,7 +1585,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            data_word_op     = 1'b1;
            data_address     = rs1_data + rs2_data;
            alu_result       = rs2_data + 16'h0002;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1519,7 +1603,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            data_access      = 1'b1;
            alu_result       = rs2_data + 16'hffff;
            data_address     = rs1_data + alu_result;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1538,7 +1622,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            alu_result       = rs2_data + 16'hfffe;
            data_address     = rs1_data + alu_result;
            data_word_op     = 1'b1;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1559,7 +1643,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            data_write       = 1'b1;
            alu_result       = rs2_data + 16'hffff;
            data_address     = rs1_data + alu_result;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1581,7 +1665,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            data_word_op     = 1'b1;
            alu_result       = rs2_data + 16'hfffe;
            data_address     = rs1_data + alu_result;
-	   sel_rd_field     = 1'b0;
+           sel_rd_field     = 1'b0;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
          end
@@ -1886,6 +1970,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       default :
         begin
           $display("\nOP Code Error\n");
+          next_cpu_state   = DEBUG;
+          next_pc          = program_counter;
+          load_next_inst   = 1'b0;
+	  op_code_error    = 1'b1;
         end
     endcase
     end  // always
@@ -1913,7 +2001,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       4'h6 : semap_risc_bit = 8'b0100_0000;
       4'h7 : semap_risc_bit = 8'b1000_0000;
     endcase
-    
+
   assign semaph_stat = |risc_semap;
 
   // A "generate" statment would be good here but it's not supported in iverilog
@@ -2150,9 +2238,9 @@ module xgate_barrel_shift (
           shift_out      = shift_filler[15:0];
           shift_rollover = shift_in[15];
         end
-        
+
      // Start Left Shifts
-        
+
       6'b1_0_0000 :
         begin
           shift_out      =  shift_in;
@@ -2239,8 +2327,8 @@ module xgate_barrel_shift (
           shift_rollover = shift_in[ 0];
         end
     endcase
-      
-      
+
+
 endmodule  // xgate_barrel_shift
 
 // -----------------------------------------------------------------------------
@@ -2249,7 +2337,7 @@ endmodule  // xgate_barrel_shift
 
 module semaphore_bit #(parameter NO_LOCK   = 2'b00,
                        parameter RISC_LOCK = 2'b10,
-		       parameter HOST_LOCK = 2'b11)
+                       parameter HOST_LOCK = 2'b11)
   (
   output      host_status,   // Return status for Host processor
   output      risc_status,   // Return Status for RISC processor
@@ -2266,7 +2354,7 @@ module semaphore_bit #(parameter NO_LOCK   = 2'b00,
 
   reg [1:0] next_semap_state;
   reg [1:0] semap_state;
-  
+
   assign host_status = semap_state == HOST_LOCK;
   assign risc_status = ssem && risc_bit_sel && ((semap_state == RISC_LOCK) || (next_semap_state == RISC_LOCK));
 
@@ -2279,30 +2367,30 @@ module semaphore_bit #(parameter NO_LOCK   = 2'b00,
   always @*
     begin
       case(semap_state)
-	NO_LOCK:
-	  begin
-	    if (host_wrt && host_bit_mask && host_bit)
-	      next_semap_state = HOST_LOCK;
-	    else if (ssem && risc_bit_sel)
-	      next_semap_state = RISC_LOCK;
-	    else
-	      next_semap_state = NO_LOCK;
-	  end
-	RISC_LOCK:
-	  begin
-	    if (csem && risc_bit_sel)
-	      next_semap_state = NO_LOCK;
-	  end
-	HOST_LOCK:
-	  begin
-	    if (host_wrt && host_bit_mask && !host_bit)
-	      next_semap_state = NO_LOCK;
-	  end
-	default:
-	  next_semap_state = NO_LOCK;
+        NO_LOCK:
+          begin
+            if (host_wrt && host_bit_mask && host_bit)
+              next_semap_state = HOST_LOCK;
+            else if (ssem && risc_bit_sel)
+              next_semap_state = RISC_LOCK;
+            else
+              next_semap_state = NO_LOCK;
+          end
+        RISC_LOCK:
+          begin
+            if (csem && risc_bit_sel)
+              next_semap_state = NO_LOCK;
+          end
+        HOST_LOCK:
+          begin
+            if (host_wrt && host_bit_mask && !host_bit)
+              next_semap_state = NO_LOCK;
+          end
+        default:
+          next_semap_state = NO_LOCK;
       endcase
     end
-  
+
 endmodule  // semaphore_bit
 
 

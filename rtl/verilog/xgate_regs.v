@@ -62,6 +62,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   output reg                  clear_xgif_0,    // Strobe for decode to clear interrupt flag bank 0
   output reg           [15:0] clear_xgif_data, // Data for decode to clear interrupt flag
   output                      semaph_stat,     // Return Status of Semaphore bit
+  output reg                  brk_irq_ena,     // Enable BRK instruction to generate interrupt
 
   input                       bus_clk,       // Control register bus clock
   input                       async_rst_b,   // Async reset signal
@@ -102,33 +103,36 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   always @(posedge bus_clk or negedge async_rst_b)
     if (!async_rst_b)
       begin
-        xge        <= 1'b0;
-        xgfrz      <= 1'b0;
-        xgdbg      <= 1'b0;
-        xgss       <= 1'b0;
-        xgfact     <= 1'b0;
-        xgsweif_c  <= 1'b0;
-        xgie       <= 1'b0;
+        xge         <= 1'b0;
+        xgfrz       <= 1'b0;
+        xgdbg       <= 1'b0;
+        xgss        <= 1'b0;
+        xgfact      <= 1'b0;
+	brk_irq_ena <= 1'b0;
+        xgsweif_c   <= 1'b0;
+        xgie        <= 1'b0;
        end
     else if (sync_reset)
       begin
-        xge        <= 1'b0;
-        xgfrz      <= 1'b0;
-        xgdbg      <= 1'b0;
-        xgss       <= 1'b0;
-        xgfact     <= 1'b0;
-        xgsweif_c  <= 1'b0;
-        xgie       <= 1'b0;
+        xge         <= 1'b0;
+        xgfrz       <= 1'b0;
+        xgdbg       <= 1'b0;
+        xgss        <= 1'b0;
+        xgfact      <= 1'b0;
+	brk_irq_ena <= 1'b0;
+        xgsweif_c   <= 1'b0;
+        xgie        <= 1'b0;
      end
     else if (write_xgmctl)
       begin
-        xge        <= write_bus[15] ? write_bus[7] : xge;
-        xgfrz      <= write_bus[14] ? write_bus[6] : xgfrz;
-        xgdbg      <= write_bus[13] ? write_bus[5] : xgdbg;
-        xgss       <= write_bus[13] ? write_bus[4] : xgss;
-        xgfact     <= write_bus[12] ? write_bus[3] : xgfact;
-        xgsweif_c  <= write_bus[10] ? write_bus[1] : xgsweif_c;
-        xgie       <= write_bus[ 9] ? write_bus[0] : xgie;
+        xge         <= write_bus[15] ? write_bus[7] : xge;
+        xgfrz       <= write_bus[14] ? write_bus[6] : xgfrz;
+        xgdbg       <= write_bus[13] ? write_bus[5] : xgdbg;
+        xgss        <= write_bus[12] && write_bus[4];
+        xgfact      <= write_bus[11] ? write_bus[3] : xgfact;
+        brk_irq_ena <= write_bus[10] ? write_bus[2] : brk_irq_ena;
+        xgsweif_c   <= write_bus[ 9] && write_bus[1];
+        xgie        <= write_bus[ 8] ? write_bus[0] : xgie;
       end
     else
       begin

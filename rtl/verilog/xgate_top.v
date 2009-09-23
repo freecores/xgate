@@ -68,6 +68,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   output          [ 7:0] xgswt,         // XGATE Software Trigger Register
   output                 write_mem_strb_l, // Strobe for writing low data byte
   output                 write_mem_strb_h, // Strobe for writing high data bye
+  output                 xg_sw_irq,        // Xgate Software interrupt
   output [MAX_CHANNEL:0] xgif,             // XGATE Interrupt Flag
   input  [MAX_CHANNEL:0] chan_req_i,       // XGATE Interrupt request
   input                  risc_clk,         // Clock for RISC core
@@ -132,11 +133,14 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire [ 6:0] int_req;       // Encoded interrupt request
   wire [ 6:0] xgchid;        // Channel actively being processed
   wire [15:1] xgvbr;         // XGATE vector Base Address Register
+  wire        brk_irq_ena;   // Enable BRK instruction to generate interrupt
   
   wire [15:0] xgate_address;   //
   wire [15:0] write_mem_data;  //
   wire [15:0] read_mem_data;   //
   wire        mem_req_ack;     //
+
+  wire        debug_active;    // RISC state machine in Debug mode 
   
   wire [ 7:0] host_semap;    // Semaphore status for host
 //  wire [15:0] write_mem_data;
@@ -214,7 +218,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 		     xgisp30,  // Reserved
 		     xgisp74,  // Reserved
 		     {8'b0, 1'b0, xgchid},  // XGCHID
-		     {8'b0, xge, xgfrz, 1'b0, xgdbg, 2'b0, 1'b0, xgie}  // XGMCTL
+		     {8'b0, xge, xgfrz, debug_active, 1'b0, 2'b0, xg_sw_irq, xgie}  // XGMCTL
 		   }
 		  )
   );
@@ -230,6 +234,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgss( xgss ),
     .xgsweif_c( xgsweif_c ),
     .xgie( xgie ),
+    .brk_irq_ena( brk_irq_ena ),
     .xgvbr( xgvbr ),
     .xgswt( xgswt ),
     .xgisp74( xgisp74 ), 
@@ -288,6 +293,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgr6( xgr6 ),
     .xgr7( xgr7 ),
     .xgif( xgif ),
+    .debug_active( debug_active ),
+    .xg_sw_irq( xg_sw_irq ),
   
     // inputs
     .risc_clk( risc_clk ),
@@ -301,6 +308,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgss( xgss ),
     .xgvbr( xgvbr ),
     .int_req( int_req ),
+    .xgie( xgie ),
+    .brk_irq_ena( brk_irq_ena ),
     .write_xgsem( write_xgsem ),
     .write_xgccr( write_xgccr ),
     .write_xgpc( write_xgpc ),
@@ -319,6 +328,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .clear_xgif_2( clear_xgif_2 ),
     .clear_xgif_1( clear_xgif_1 ),
     .clear_xgif_0( clear_xgif_0 ),
+    .xgsweif_c( xgsweif_c ),
     .clear_xgif_data( clear_xgif_data )
   );
 
