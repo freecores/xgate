@@ -43,7 +43,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   (
   output reg                  xge,          // XGATE Module Enable
   output reg                  xgfrz,        // Stop XGATE in Freeze Mode
-  output reg                  xgdbg,        // XGATE Debug Mode
+  output reg                  xgdbg_set,    // Enter XGATE Debug Mode
+  output reg                  xgdbg_clear,  // Leave XGATE Debug Mode
   output reg                  xgss,         // XGATE Single Step
   output reg                  xgfact,       // XGATE Flag Activity
   output reg                  xgsweif_c,    // Clear XGATE Software Error Interrupt FLag
@@ -99,13 +100,13 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
 
   // generate wishbone write registers
   // XGMCTL Register
-  //  xgdbgm;    // XGATE Debug Mode Mask
   always @(posedge bus_clk or negedge async_rst_b)
     if (!async_rst_b)
       begin
         xge         <= 1'b0;
         xgfrz       <= 1'b0;
-        xgdbg       <= 1'b0;
+        xgdbg_set   <= 1'b0;
+        xgdbg_clear <= 1'b0;
         xgss        <= 1'b0;
         xgfact      <= 1'b0;
 	brk_irq_ena <= 1'b0;
@@ -116,7 +117,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       begin
         xge         <= 1'b0;
         xgfrz       <= 1'b0;
-        xgdbg       <= 1'b0;
+        xgdbg_set   <= 1'b0;
+        xgdbg_clear <= 1'b0;
         xgss        <= 1'b0;
         xgfact      <= 1'b0;
 	brk_irq_ena <= 1'b0;
@@ -127,7 +129,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       begin
         xge         <= write_bus[15] ? write_bus[7] : xge;
         xgfrz       <= write_bus[14] ? write_bus[6] : xgfrz;
-        xgdbg       <= write_bus[13] ? write_bus[5] : xgdbg;
+        xgdbg_set   <= write_bus[13] && write_bus[5];
+        xgdbg_clear <= write_bus[13] && !write_bus[5];
         xgss        <= write_bus[12] && write_bus[4];
         xgfact      <= write_bus[11] ? write_bus[3] : xgfact;
         brk_irq_ena <= write_bus[10] ? write_bus[2] : brk_irq_ena;
@@ -136,8 +139,10 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       end
     else
       begin
-        xgss       <= 1'b0;
-        xgsweif_c  <= 1'b0;
+        xgss        <= 1'b0;
+        xgsweif_c   <= 1'b0;
+        xgdbg_set   <= 1'b0;
+        xgdbg_clear <= 1'b0;
       end
 
   // XGVBR Register

@@ -69,7 +69,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input             mem_req_ack,    // Memory Bus available - data good
   input             xge,            // XGATE Module Enable
   input             xgfrz,          // Stop XGATE in Freeze Mode
-  input             xgdbg,          // XGATE Debug Mode
+  input             xgdbg_set,      // Enter XGATE Debug Mode
+  input             xgdbg_clear,    // Leave XGATE Debug Mode
   input             xgss,           // XGATE Single Step
   input      [15:1] xgvbr,          // XGATE vector Base Address Register
   input      [ 6:0] int_req,        // Encoded interrupt request
@@ -188,8 +189,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         xgss_edge;     // Flop for edge detection
   wire        single_step;   // Pulse to trigger a single instruction execution in debug mode
   reg         brk_set_dbg;   // Pulse to set debug_active from instruction decoder
-  reg         xgdbg_dly;     //
-  wire        xgdbg_negedge; //
+  reg         cmd_change_pc; // Debug write to PC register
 
 
   assign xgate_address = data_access ? data_address : program_counter;
@@ -204,7 +204,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   assign start_thread = xge && (|int_req);
 
   assign cpu_is_idle = (cpu_state == IDLE);
-  assign perif_wrt_ena = (cpu_is_idle && ~xge) || xgdbg;
+  assign perif_wrt_ena = (cpu_is_idle && ~xge) || debug_active;
 
   // Decode register select for RD and RS
   always @*
@@ -226,7 +226,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   // Decode register write select for eather RD or RI/RS2
   always @*
     begin
-      wrt_sel_xgr1 = (cpu_state == BOOT_2);
+      wrt_sel_xgr1 = (cpu_state == BOOT_3);
       wrt_sel_xgr2 = 1'b0;
       wrt_sel_xgr3 = 1'b0;
       wrt_sel_xgr4 = 1'b0;
@@ -294,21 +294,12 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 			
   assign xg_sw_irq = software_error && xgie;
 
-  //  Edge detect xgdbg
-  always @(posedge risc_clk or negedge async_rst_b)
-    if ( !async_rst_b )
-      xgdbg_dly  <= 1'b0;
-    else
-      xgdbg_dly  <= xgdbg;
-
-  assign xgdbg_negedge = !xgdbg && xgdbg_dly;
-
   //  Latch the debug state, set by eather xgdb or BRK instructions
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
       debug_active  <= 1'b0;
     else
-      debug_active  <= !xgdbg_negedge && (xgdbg || brk_set_dbg || op_code_error || debug_active);
+      debug_active  <= !xgdbg_clear && (xgdbg_set || brk_set_dbg || op_code_error || debug_active);
 
   //  Convert xgss (Single Step Pulse) to a one risc_clk wide pulse
   always @(posedge risc_clk or negedge async_rst_b)
@@ -354,6 +345,13 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       program_counter  <= 16'h0000;
     else
       program_counter  <= (write_xgpc && perif_wrt_ena) ? perif_data : (mem_req_ack ? next_pc : program_counter);
+
+  //  Debug Change Program Counter Register
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      cmd_change_pc  <= 1'b0;
+    else
+      cmd_change_pc  <= write_xgpc && perif_wrt_ena;
 
   //  ALU Flag Bits
   always @(posedge risc_clk or negedge async_rst_b)
@@ -559,8 +557,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       {DEBUG, 16'b????????????????} :
          begin
-           next_cpu_state = xge ? ((single_step || !debug_active) ? CONT : DEBUG) : IDLE;
-           load_next_inst = 1'b0;
+           next_cpu_state = xge ? ((single_step || !debug_active) ? CONT : (cmd_change_pc ? LD_INST : DEBUG)) : IDLE;
+           load_next_inst = cmd_change_pc;
            next_pc        = program_counter;
          end
 

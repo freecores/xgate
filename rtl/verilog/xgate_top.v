@@ -126,7 +126,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 
   wire        xge;           // XGATE Module Enable
   wire        xgfrz;         // Stop XGATE in Freeze Mode
-  wire        xgdbg;         // XGATE Debug Mode
+  wire        xgdbg_set;     // Enter XGATE Debug Mode
+  wire        xgdbg_clear;   // Leave XGATE Debug Mode
   wire        xgss;          // XGATE Single Step
   wire        xgsweif_c;     // Clear XGATE Software Error Interrupt FLag
   wire        xgie;          // XGATE Interrupt Enable
@@ -230,7 +231,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     // outputs
     .xge( xge ),
     .xgfrz( xgfrz ),
-    .xgdbg( xgdbg ),
+    .xgdbg_set( xgdbg_set ),
+    .xgdbg_clear( xgdbg_clear ),
     .xgss( xgss ),
     .xgsweif_c( xgsweif_c ),
     .xgie( xgie ),
@@ -304,7 +306,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .mem_req_ack( mem_req_ack ),
     .xge( xge ),
     .xgfrz( xgfrz ),
-    .xgdbg( xgdbg ),
+    .xgdbg_set( xgdbg_set ),
+    .xgdbg_clear( xgdbg_clear ),
     .xgss( xgss ),
     .xgvbr( xgvbr ),
     .int_req( int_req ),
