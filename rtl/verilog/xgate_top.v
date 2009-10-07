@@ -91,6 +91,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire [15:0] xgisp30;       // XGATE Interrupt level 3-0 stack pointer
 
   wire        write_xgmctl;  // Write Strobe for XGMCTL register
+  wire        write_xgchid;  // Write Strobe for XGCHID register
   wire        write_xgisp74; // Write Strobe for XGISP74 register
   wire        write_xgisp31; // Write Strobe for XGISP31 register
   wire        write_xgvbr;   // Write Strobe for XGVBR_LO register
@@ -169,6 +170,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     // outputs
     .sync_reset( sync_reset ),
     .write_xgmctl( write_xgmctl ),
+    .write_xgchid( write_xgchid ),
     .write_xgisp74( write_xgisp74 ),
     .write_xgisp30( write_xgisp30 ),
     .write_xgvbr( write_xgvbr ),
@@ -204,22 +206,22 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 		     16'b0,            // Reserved (XGR0)
 		     xgate_address,    // XGPC
 		     {12'h000,  negative_flag, zero_flag, overflow_flag, carry_flag},  // XGCCR
-		     16'b0,  // Reserved
+		     16'b0,                // Reserved
 		     {8'h00, host_semap},  // XGSEM
-		     {8'h00, xgswt},  // XGSWT
-		     xgif[ 15:  0],  // XGIF_0
-		     xgif[ 31: 16],  // XGIF_1
-		     xgif[ 47: 32],  // XGIF_2
-		     xgif[ 63: 48],  // XGIF_3
-		     xgif[ 79: 64],  // XGIF_4
-		     xgif[ 95: 80],  // XGIF_5
-		     xgif[111: 96],  // XGIF_6
-		     xgif[127:112],  // XGIF_7
+		     {8'h00, xgswt},       // XGSWT
+		     xgif[ 15:  0],        // XGIF_0
+		     xgif[ 31: 16],        // XGIF_1
+		     xgif[ 47: 32],        // XGIF_2
+		     xgif[ 63: 48],        // XGIF_3
+		     xgif[ 79: 64],        // XGIF_4
+		     xgif[ 95: 80],        // XGIF_5
+		     xgif[111: 96],        // XGIF_6
+		     xgif[127:112],        // XGIF_7
 		     {xgvbr[15:1], 1'b0},  // XGVBR
-		     xgisp30,  // Reserved
-		     xgisp74,  // Reserved
-		     {8'b0, 1'b0, xgchid},  // XGCHID
-		     {8'b0, xge, xgfrz, debug_active, 1'b0, 2'b0, xg_sw_irq, xgie}  // XGMCTL
+		     xgisp30,              // Reserved
+		     xgisp74,              // Reserved
+		     {8'b0, 1'b0, xgchid}, // XGCHID
+		     {8'b0, xge, xgfrz, debug_active, 1'b0, 1'b0, brk_irq_ena, xg_sw_irq, xgie}  // XGMCTL
 		   }
 		  )
   );
@@ -269,8 +271,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .write_xgif_1( write_xgif_1 ),
     .write_xgif_0( write_xgif_0 ),
     .write_xgswt( write_xgswt )
-
-    
   );
 
   // ---------------------------------------------------------------------------
@@ -314,6 +314,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgie( xgie ),
     .brk_irq_ena( brk_irq_ena ),
     .write_xgsem( write_xgsem ),
+    .write_xgchid( write_xgchid ),
     .write_xgccr( write_xgccr ),
     .write_xgpc( write_xgpc ),
     .write_xgr7( write_xgr7 ),

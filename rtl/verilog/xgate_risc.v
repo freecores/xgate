@@ -76,6 +76,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input      [ 6:0] int_req,        // Encoded interrupt request
   input             xgie,           // XGATE Interrupt Enable
   input             brk_irq_ena,    // Enable BRK instruction to generate interrupt
+  input             write_xgchid,   // Write Strobe for XGCHID register
   input             write_xgsem,    // Write Strobe for XGSEM register
   input             write_xgccr,    // Write Strobe for XGATE Condition Code Register
   input             write_xgpc,     // Write Strobe for XGATE Program Counter
@@ -115,7 +116,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
        DEBUG   = 4'b1000,      // Stop in this state while waiting for debug commands
        BOOT_1  = 4'b1001,      //
        BOOT_2  = 4'b1010,      //
-       BOOT_3  = 4'b1011;      //
+       BOOT_3  = 4'b1011,      //
+       CHG_CHID = 4'b1100;
 
 
   // Semaphore states
@@ -146,7 +148,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         next_negative;  // Pseudo Register,
   reg         next_carry;     // Pseudo Register,
   reg         next_overflow;  // Pseudo Register,
-  
+
   reg         op_code_error;  // Pseudo Register,
   reg         software_error; // OP Code error, Address Error, BRK Error
   wire        addr_error;     // Decode Addressing error
@@ -181,7 +183,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg  [ 4:0] shift_ammount;
   reg  [15:0] shift_filler;
 
-  wire        start_thread;
+  wire        start_thread;  // Signle to pop RISC core out of IDLE State
 
   wire        cpu_is_idle;   // Processor is in the IDLE state
   wire        perif_wrt_ena; // Enable for Salve writes to CPU registers
@@ -191,9 +193,18 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         brk_set_dbg;   // Pulse to set debug_active from instruction decoder
   reg         cmd_change_pc; // Debug write to PC register
 
+  reg  [ 1:0] chid_sm_ns;    // Pseudo Register,
+  reg  [ 1:0] chid_sm;       //
+  wire        chid_goto_idle; //
+
+  // Debug states for change CHID
+  parameter [1:0] CHID_IDLE = 2'b00,
+                  CHID_TEST = 2'b10,
+                  CHID_WAIT = 2'b11;
+
 
   assign xgate_address = data_access ? data_address : program_counter;
-  
+
   // Generate an address for an op code fetch from an odd address or a word Load/Store from/to an odd address.
   assign addr_error = xgate_address[0] && (load_next_inst || (data_access && data_word_op));
 
@@ -201,7 +212,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   assign write_mem_strb_h = data_access && data_write && (data_word_op ||  data_address[0]);
   assign write_mem_data   = (write_mem_strb_l || write_mem_strb_h) ? rd_data : 16'b0;
 
-  assign start_thread = xge && (|int_req);
+  assign start_thread = xge && (|int_req) && !debug_active;
 
   assign cpu_is_idle = (cpu_state == IDLE);
   assign perif_wrt_ena = (cpu_is_idle && ~xge) || debug_active;
@@ -289,9 +300,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       software_error <= 1'b0;
     else
-      software_error <= addr_error || op_code_error || 
+      software_error <= addr_error || op_code_error ||
                         (brk_set_dbg && brk_irq_ena) || (software_error && !xgsweif_c);
-			
+
   assign xg_sw_irq = software_error && xgie;
 
   //  Latch the debug state, set by eather xgdb or BRK instructions
@@ -330,7 +341,35 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       xgchid  <= 7'b0;
     else
-      xgchid  <= (cpu_is_idle && mem_req_ack) ? int_req : xgchid;
+      xgchid  <= (write_xgchid && debug_active) ? perif_data[6:0] : ((cpu_is_idle && mem_req_ack) ? int_req : xgchid);
+
+  //  Channel Change Debug state machine register
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      chid_sm  <= CHID_IDLE;
+    else
+      chid_sm  <= chid_sm_ns;
+
+  //  Channel Change Debug next state
+  always @*
+    case (chid_sm)
+      CHID_IDLE:
+        if ( write_xgchid && debug_active )
+          chid_sm_ns  = CHID_TEST;
+      CHID_TEST:
+        if ( !((cpu_state == IDLE) || (cpu_state == CHG_CHID)) && (|xgchid) )
+          chid_sm_ns  = CHID_IDLE;
+        else
+          chid_sm_ns  = CHID_WAIT;
+      CHID_WAIT:
+        if ( (cpu_state == IDLE) || (cpu_state == CHG_CHID) )
+          chid_sm_ns  = CHID_IDLE;
+        else
+          chid_sm_ns  = CHID_WAIT;
+      default : chid_sm_ns  = CHID_IDLE;
+    endcase
+    
+  assign chid_goto_idle = (chid_sm == CHID_WAIT);
 
   //  CPU Read Data Buffer Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -499,6 +538,19 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            load_next_inst   = 1'b0;
          end
 
+      {CHG_CHID, 16'b????????????????} :
+         begin
+	   if (!xge)
+             next_cpu_state = IDLE;
+	   else if (single_step || !debug_active)
+             next_cpu_state = BOOT_1;
+	   else
+             next_cpu_state = CHG_CHID;	     
+
+	   next_pc          = program_counter;
+           load_next_inst   = 1'b0;
+         end
+
       // Output RAM address for Program Counter
       {BOOT_1, 16'b????????????????} :
          begin
@@ -536,7 +588,17 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       {BREAK, 16'b????????????????} :
          begin
-           next_cpu_state = xge ? ((single_step || !debug_active) ? BREAK_2 : BREAK) : IDLE;
+	   if (!xge)
+             next_cpu_state = IDLE;
+	   else if (single_step || !debug_active)
+             next_cpu_state = BREAK_2;
+	   else if (chid_goto_idle)
+             next_cpu_state = CHG_CHID;
+	   else
+             next_cpu_state = BREAK;	     
+//             next_cpu_state = (xge && !chid_goto_idle) ?
+//	                    ((single_step || !debug_active) ?
+//			    BREAK_2 : BREAK) : IDLE;
            load_next_inst = 1'b0;
            next_pc        = program_counter;
          end
@@ -557,7 +619,20 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       {DEBUG, 16'b????????????????} :
          begin
-           next_cpu_state = xge ? ((single_step || !debug_active) ? CONT : (cmd_change_pc ? LD_INST : DEBUG)) : IDLE;
+	   if (!xge)
+             next_cpu_state = IDLE;
+	   else if (single_step || !debug_active)
+             next_cpu_state = CONT;
+	   else if (cmd_change_pc)
+             next_cpu_state = LD_INST;
+	   else if (chid_goto_idle)
+             next_cpu_state = CHG_CHID;
+	   else
+             next_cpu_state = DEBUG;	     
+
+//           next_cpu_state = (xge && !chid_goto_idle) ?
+//	                    ((single_step || !debug_active) ?
+//			    CONT : (cmd_change_pc ? LD_INST : DEBUG)) : IDLE;
            load_next_inst = cmd_change_pc;
            next_pc        = program_counter;
          end
@@ -1971,7 +2046,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
           next_cpu_state   = DEBUG;
           next_pc          = program_counter;
           load_next_inst   = 1'b0;
-	  op_code_error    = 1'b1;
+          op_code_error    = 1'b1;
         end
     endcase
     end  // always

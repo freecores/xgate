@@ -56,6 +56,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input              [1:0] wbs_sel_i,     // Select byte in word bus transaction
   // XGATE Control Signals
   output reg               write_xgmctl, // Write Strobe for XGMCTL register
+  output reg               write_xgchid, // Write Strobe for XGCHID register
   output reg               write_xgisp74,// Write Strobe for XGISP74 register
   output reg               write_xgisp30,// Write Strobe for XGISP30 register
   output reg               write_xgvbr,  // Write Strobe for XGVBR register
@@ -89,7 +90,8 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   reg  [DWIDTH-1:0]  rd_data_mux;     // Pseudo Register, WISHBONE Read Data Mux
   reg  [DWIDTH-1:0]  rd_data_reg;     // Latch for WISHBONE Read Data
   
-  reg                write_reserv;    // Dummy Reg decode for Reserved address
+  reg                write_reserv1;   // Dummy Reg decode for Reserved address
+  reg                write_reserv2;   // Dummy Reg decode for Reserved address
 
   // Wires
   wire   module_sel;       // This module is selected for bus transaction
@@ -163,8 +165,10 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   // generate wishbone write register strobes
   always @*
     begin
-      write_reserv = 1'b0;
-      write_xgmctl = 1'b0;
+      write_reserv1 = 1'b0;
+      write_reserv2 = 1'b0;
+      write_xgmctl  = 1'b0;
+      write_xgchid  = 1'b0;
       write_xgisp74 = 1'b0;
       write_xgisp30 = 1'b0;
       write_xgvbr  = 1'b0;
@@ -192,7 +196,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
 	case (wbs_adr_i) // synopsys parallel_case
            // 16 bit Bus, 16 bit Granularity
 	   5'b0_0000 : write_xgmctl  = 1'b1;
-//	   5'b0_0001 : write_xgchid  = 1'b1;
+	   5'b0_0001 : write_xgchid  = 1'b1;
 	   5'b0_0010 : write_xgisp74 = 1'b1;
 	   5'b0_0011 : write_xgisp30 = 1'b1;
 	   5'b0_0100 : write_xgvbr   = 1'b1;
@@ -206,10 +210,10 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
 	   5'b0_1100 : write_xgif_0  = 1'b1;
 	   5'b0_1101 : write_xgswt   = 1'b1;
 	   5'b0_1110 : write_xgsem   = 1'b1;
-	   5'b0_1111 : write_reserv  = 1'b1;
+	   5'b0_1111 : write_reserv1 = 1'b1;
 	   5'b1_0000 : write_xgccr   = 1'b1;
 	   5'b1_0001 : write_xgpc    = 1'b1;
-	   5'b1_0010 : write_reserv  = 1'b1;
+	   5'b1_0010 : write_reserv2 = 1'b1;
 	   5'b1_0011 : write_xgr1    = 1'b1;
 	   5'b1_0100 : write_xgr2    = 1'b1;
 	   5'b1_0101 : write_xgr3    = 1'b1;
