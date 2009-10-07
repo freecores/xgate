@@ -3,6 +3,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Oct 07,2009
+RTL - 85% done
+All debug commands now working, including writes to XGCHID register.
+
+Updates to testbench, added timeout and total error count.
+Updates to User Guide.
+Created the sw directory and copied over the software stuff from the bench
+directory.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Sept 23,2009
 BRK instruction working. Single Step Command in debug mode working.
 Software error interrupt added.
