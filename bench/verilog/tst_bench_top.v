@@ -45,8 +45,8 @@ module tst_bench_top();
 
   parameter MAX_CHANNEL = 127;    // Max XGATE Interrupt Channel Number
   parameter STOP_ON_ERROR = 1'b0;
-  parameter MAX_VECTOR = 1800;
-  
+  parameter MAX_VECTOR = 2100;
+
   //
   // wires && regs
   //
@@ -61,7 +61,7 @@ module tst_bench_top();
   reg        wait_mode;
   reg        debug_mode;
   reg        scantestmode;
-  
+
   reg       wbm_ack_i;
 
 
@@ -76,23 +76,19 @@ module tst_bench_top();
   wire count_flag_1;
 
   reg [15:0] q, qq;
-  
-  reg  [  7:0] ram_8 [65535:0];
+
+  reg  [  7:0] ram_8 [65535:0];      // Testbench memory for holding XGATE test code
   wire         write_mem_strb_l;
   wire         write_mem_strb_h;
-  reg  [127:0] channel_req;
-  wire [  7:0] xgswt;        // XGATE Software Triggers
-  wire [MAX_CHANNEL:0] xgif; // Max XGATE Interrupt Channel Number
-  wire         xg_sw_irq;    // Xgate Software interrupt
+  reg  [MAX_CHANNEL:0] channel_req;  // XGATE Interrupt inputs
+  wire [MAX_CHANNEL:0] xgif;         // XGATE Interrupt outputs
+  wire         [  7:0] xgswt;        // XGATE Software Trigger outputs
+  wire                 xg_sw_irq;    // Xgate Software Error interrupt
 
 
-  wire [15:0] xgate_address;
-  wire [15:0] write_mem_data;
-  wire [15:0] read_mem_data;
-  
-  wire [15:0] wbm_dat_o;
-  wire [15:0] wbm_dat_i;
-  wire [15:0] wbm_adr_o;
+  wire [15:0] wbm_dat_o;         // WISHBONE Master Mode data output from XGATE
+  wire [15:0] wbm_dat_i;         // WISHBONE Master Mode data input to XGATE
+  wire [15:0] wbm_adr_o;         // WISHBONE Master Mode address output from XGATE
   wire [ 1:0] wbm_sel_o;
 
 
@@ -115,7 +111,7 @@ module tst_bench_top();
   parameter XGATE_RES1     = 5'h0f;
   parameter XGATE_XGCCR    = 5'h10;
   parameter XGATE_XGPC     = 5'h11;
-  parameter XGATE_RES1     = 5'h12;
+  parameter XGATE_RES2     = 5'h12;
   parameter XGATE_XGR1     = 5'h13;
   parameter XGATE_XGR2     = 5'h14;
   parameter XGATE_XGR3     = 5'h15;
@@ -123,7 +119,7 @@ module tst_bench_top();
   parameter XGATE_XGR5     = 5'h17;
   parameter XGATE_XGR6     = 5'h18;
   parameter XGATE_XGR7     = 5'h19;
-  
+
   // Define bits in XGATE Control Register
   parameter XGMCTL_XGEM     = 16'h8000;
   parameter XGMCTL_XGFRZM   = 16'h4000;
@@ -141,10 +137,7 @@ module tst_bench_top();
   parameter XGMCTL_XGBRKIE  = 15'h0004;
   parameter XGMCTL_XGSWEIF  = 15'h0002;
   parameter XGMCTL_XGIE     = 15'h0001;
-  
-  parameter COP_CNTRL = 5'b0_0000;
 
-  parameter COP_CNTRL_COP_EVENT  = 16'h0100;  // COP Enable interrupt request
 
   parameter CHECK_POINT = 16'h8000;
   parameter CHANNEL_ACK = CHECK_POINT + 2;
@@ -156,9 +149,9 @@ module tst_bench_top();
   event channel_ack_wrt;
   event channel_err_wrt;
   reg [15:0] error_count;
-  
+
   reg        mem_wait_state_enable;
-  
+
   // Registers used to mirror internal registers
   reg [15:0] data_xgmctl;
   reg [15:0] data_xgchid;
@@ -208,11 +201,17 @@ module tst_bench_top();
     begin
       vector <= vector + 1;
       if (vector > MAX_VECTOR)
-	begin
-	  error_count = error_count + 1;
-	  $display("\n ------ !!!!! Simulation Timeout at vector=%d\n -------", vector);
-	  wrap_up;
-	end
+        begin
+          error_count <= error_count + 1;
+          $display("\n ------ !!!!! Simulation Timeout at vector=%d\n -------", vector);
+          wrap_up;
+        end
+    end
+
+  // Add up errors tha come from WISHBONE read compares
+  always @u0.cmp_error_detect
+    begin
+      error_count <= error_count + 1;
     end
 
 
@@ -221,7 +220,7 @@ module tst_bench_top();
     if (((vector % 5) == 0) && (xgate.risc.load_next_inst || xgate.risc.data_access))
 //    if ((vector % 5) == 0)
       wbm_ack_i <= 1'b0;
-    else 
+    else
       wbm_ack_i <= 1'b1;
 
 
@@ -229,43 +228,43 @@ module tst_bench_top();
   always @(posedge mstr_test_clk)
     begin
       if (write_mem_strb_l && !write_mem_strb_h && wbm_ack_i)
-	ram_8[xgate_address] <= write_mem_data[7:0];
+        ram_8[wbm_adr_o] <= wbm_dat_o[7:0];
       if (write_mem_strb_h && !write_mem_strb_l && wbm_ack_i)
-	ram_8[xgate_address] <= write_mem_data[7:0];
+        ram_8[wbm_adr_o] <= wbm_dat_o[7:0];
       if (write_mem_strb_h && write_mem_strb_l && wbm_ack_i)
-	begin
-	  ram_8[xgate_address]   <= write_mem_data[15:8];
-	  ram_8[xgate_address+1] <= write_mem_data[7:0];
-	end
+        begin
+          ram_8[wbm_adr_o]   <= wbm_dat_o[15:8];
+          ram_8[wbm_adr_o+1] <= wbm_dat_o[7:0];
+        end
     end
 
   // Special Memory Mapped Testbench Registers
   always @(posedge mstr_test_clk or negedge rstn)
     begin
       if (!rstn)
-	begin
-	  check_point_reg <= 0;
-	  channel_ack_reg <= 0;
-	  channel_err_reg <= 0;
-	end
-      if (write_mem_strb_l && wbm_ack_i && (xgate_address == CHECK_POINT))
-	begin
-	  check_point_reg <= write_mem_data[7:0];
-	  #1;
-	  -> check_point_wrt;
-	end
-      if (write_mem_strb_l && wbm_ack_i && (xgate_address == CHANNEL_ACK))
-	begin
-	  channel_ack_reg <= write_mem_data[7:0];
-	  #1;
-	  -> channel_ack_wrt;
-	end
-      if (write_mem_strb_l && wbm_ack_i && (xgate_address == CHANNEL_ERR))
-	begin
-	  channel_err_reg <= write_mem_data[7:0];
-	  #1;
-	  -> channel_err_wrt;
-	end
+        begin
+          check_point_reg <= 0;
+          channel_ack_reg <= 0;
+          channel_err_reg <= 0;
+        end
+      if (write_mem_strb_l && wbm_ack_i && (wbm_adr_o == CHECK_POINT))
+        begin
+          check_point_reg <= wbm_dat_o[7:0];
+          #1;
+          -> check_point_wrt;
+        end
+      if (write_mem_strb_l && wbm_ack_i && (wbm_adr_o == CHANNEL_ACK))
+        begin
+          channel_ack_reg <= wbm_dat_o[7:0];
+          #1;
+          -> channel_ack_wrt;
+        end
+      if (write_mem_strb_l && wbm_ack_i && (wbm_adr_o == CHANNEL_ERR))
+        begin
+          channel_err_reg <= wbm_dat_o[7:0];
+          #1;
+          -> channel_err_wrt;
+        end
     end
 
   always @check_point_wrt
@@ -276,27 +275,29 @@ module tst_bench_top();
       $display("\n ------ !!!!! Software Error #%d -- at vector=%d\n  -------", channel_err_reg, vector);
       error_count = error_count + 1;
       if (STOP_ON_ERROR == 1'b1)
-	wrap_up;
+        wrap_up;
     end
 
   wire [ 6:0] current_active_channel = xgate.risc.xgchid;
   always @channel_ack_wrt
     clear_channel(current_active_channel);
-      
-      
+
+
   // hookup wishbone master model
   wb_master_model #(.dwidth(16), .awidth(32))
           u0 (
-          .clk(mstr_test_clk),
-          .rst(rstn),
-          .adr(adr),
-          .din(dat_i),
-          .dout(dat_o),
+	  // Outputs
           .cyc(cyc),
           .stb(stb),
           .we(we),
           .sel(),
+          .adr(adr),
+          .dout(dat_o),
+	  // inputs
+          .din(dat_i),
+          .clk(mstr_test_clk),
           .ack(ack),
+          .rst(rstn),
           .err(1'b0),
           .rty(1'b0)
   );
@@ -320,15 +321,15 @@ module tst_bench_top();
                  ({16{stb1}} & dat1_i) |
                  ({16{stb2}} & dat2_i) |
                  ({16{stb3}} & {8'b0, dat3_i[7:0]});
-		 
+
   assign ack = ack_1 || ack_2 || ack_3 || ack_4;
-  
-  assign read_mem_data = {ram_8[xgate_address], ram_8[xgate_address+1]};
+
+  assign wbm_dat_i = {ram_8[wbm_adr_o], ram_8[wbm_adr_o+1]};
 
   // hookup XGATE core - Parameters take all default values
   //  Async Reset, 16 bit Bus, 16 bit Granularity
   xgate_top  #(.SINGLE_CYCLE(1'b1),
-	       .MAX_CHANNEL(MAX_CHANNEL))    // Max XGATE Interrupt Channel Number
+               .MAX_CHANNEL(MAX_CHANNEL))    // Max XGATE Interrupt Channel Number
           xgate(
           // Wishbone slave interface
           .wbs_clk_i( mstr_test_clk ),
@@ -344,22 +345,22 @@ module tst_bench_top();
           .wbs_ack_o( ack_1 ),
 
           // Wishbone master Signals
-          .wbm_dat_o( write_mem_data ),
+          .wbm_dat_o( wbm_dat_o ),
           .wbm_we_o( wbm_we_o ),
           .wbm_stb_o( wbm_stb_o ),
           .wbm_cyc_o( wbm_cyc_o ),
           .wbm_sel_o( wbm_sel_o ),
-          .wbm_adr_o( xgate_address ),
-          .wbm_dat_i( read_mem_data ),
+          .wbm_adr_o( wbm_adr_o ),
+          .wbm_dat_i( wbm_dat_i ),
           .wbm_ack_i( wbm_ack_i ),
 
-          .xgif( xgif ),             // XGATE Interrupt Flag
-          .xg_sw_irq( xg_sw_irq ),
-          .risc_clk( mstr_test_clk ),
+          .xgif( xgif ),             // XGATE Interrupt Flag output
+          .xg_sw_irq( xg_sw_irq ),   // XGATE Software Error Interrupt Flag output
           .xgswt( xgswt ),
-	  .chan_req_i( {channel_req[127:40], xgswt, channel_req[31:0]} ),
-	  .write_mem_strb_l( write_mem_strb_l ),
-	  .write_mem_strb_h( write_mem_strb_h ),
+          .risc_clk( mstr_test_clk ),
+          .chan_req_i( {channel_req[MAX_CHANNEL:40], xgswt, channel_req[31:0]} ),
+          .write_mem_strb_l( write_mem_strb_l ),
+          .write_mem_strb_h( write_mem_strb_h ),
           .scantestmode( scantestmode )
   );
 
@@ -372,12 +373,11 @@ module tst_bench_top();
 // Test Program
 initial
   begin
-      $readmemh("../../../bench/verilog/inst_test.v", ram_8);
       $display("\nstatus at time: %t Testbench started", $time);
 
       // reset system
       rstn = 1'b1; // negate reset
-      channel_req = 1; // 
+      channel_req = 1; //
       repeat(1) @(posedge mstr_test_clk);
       sync_reset = 1'b1;  // Make the sync reset 1 clock cycle long
       #2;          // move the async reset away from the clock edge
@@ -385,57 +385,155 @@ initial
       #5;          // Keep the async reset pulse with less than a clock cycle
       rstn = 1'b1; // negate async reset
       por_reset_b = 1'b1;
-      channel_req = 0; // 
+      channel_req = 0; //
       repeat(1) @(posedge mstr_test_clk);
       sync_reset = 1'b0;
-      channel_req = 0; // 
+      channel_req = 0; //
 
       $display("\nstatus at time: %t done reset", $time);
-      
+
       test_inst_set;
-      
+
       test_debug_mode;
 
-//      test_debug_bit; 
-      
+      test_debug_bit;
+
+      test_chid_debug;
+
       wrap_up;
       //
       // program core
       //
 
       reg_test_16;
-      
+
       repeat(10) @(posedge mstr_test_clk);
 
       wrap_up;
   end
 
+// Test CHID Debug mode operation
+task test_chid_debug;
+  begin
+    test_num = test_num + 1;
+    $display("\nTEST #%d Starts at vector=%d, test_chid_debug", test_num, vector);
+    $readmemh("../../../bench/verilog/debug_test.v", ram_8);
+
+    data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Enable interrupt on BRK instruction
+
+    activate_thread_sw(3);
+
+    wait_debug_set;   // Debug Status bit is set by BRK instruction
+
+    u0.wb_cmp(0, XGATE_XGPC,     16'h20c6);      // See Program code (BRK).
+    u0.wb_cmp(0, XGATE_XGR3,     16'h0001);      // See Program code.R3 = 1
+    u0.wb_cmp(0, XGATE_XGCHID,   16'h0003);      // Check for Correct CHID
+
+    channel_req[5] = 1'b1; //
+    repeat(7) @(posedge mstr_test_clk);
+    u0.wb_cmp(0, XGATE_XGCHID,   16'h0003);      // Check for Correct CHID
+
+    u0.wb_write(0, XGATE_XGCHID, 16'h000f);      // Change CHID
+    u0.wb_cmp(0, XGATE_XGCHID,   16'h000f);      // Check for Correct CHID
+
+    u0.wb_write(0, XGATE_XGCHID, 16'h0000);      // Change CHID to 00, RISC should go to IDLE state
+
+    repeat(1) @(posedge mstr_test_clk);
+
+    u0.wb_write(0, XGATE_XGCHID, 16'h0004);      // Change CHID
+
+    repeat(8) @(posedge mstr_test_clk);
+
+    data_xgmctl = XGMCTL_XGDBGM;
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Debug Mode Control Bit
+
+    wait_debug_set;   // Debug Status bit is set by BRK instruction
+    u0.wb_cmp(0, XGATE_XGCHID,   16'h0004);      // Check for Correct CHID
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Debug Mode Control Bit (Excape from Break State and run)
+
+    wait_debug_set;   // Debug Status bit is set by BRK instruction
+    u0.wb_cmp(0, XGATE_XGCHID,   16'h0005);      // Check for Correct CHID
+    activate_channel(6);
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Debug Mode Control Bit (Excape from Break State and run)
+
+    wait_debug_set;   // Debug Status bit is set by BRK instruction
+    u0.wb_cmp(0, XGATE_XGCHID,   16'h0006);      // Check for Correct CHID
+    u0.wb_cmp(0, XGATE_XGPC,     16'h211c);      // See Program code (BRK)
+    data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Do a Single Step
+    repeat(8) @(posedge mstr_test_clk);
+    u0.wb_cmp(0, XGATE_XGPC,     16'h211e);      // See Program code (BRA)
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Do a Single Step
+    repeat(8) @(posedge mstr_test_clk);
+    u0.wb_cmp(0, XGATE_XGPC,     16'h2122);      // See Program code ()
+
+    repeat(20) @(posedge mstr_test_clk);
+
+    data_xgmctl = XGMCTL_XGDBGM;
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Debug Mode Control Bit
+
+    repeat(50) @(posedge mstr_test_clk);
+
+  end
+endtask
+
 // Test Debug bit operation
 task test_debug_bit;
   begin
     test_num = test_num + 1;
-    $display("\nTEST #%d Starts at vector=%d, test_debug_mode", test_num, vector);
+    $display("\nTEST #%d Starts at vector=%d, test_debug_bit", test_num, vector);
     $readmemh("../../../bench/verilog/debug_test.v", ram_8);
-    
+
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
     u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Enable interrupt on BRK instruction
 
     activate_thread_sw(2);
-    
+
     repeat(25) @(posedge mstr_test_clk);
 
     data_xgmctl = XGMCTL_XGDBGM | XGMCTL_XGDBG;
     u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Set Debug Mode Control Bit
-//    data_xgmctl = XGMCTL_XGDBGM;
-//    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Debug Mode Control Bit
+    repeat(5) @(posedge mstr_test_clk);
+
+    u0.wb_read(1, XGATE_XGR3, q);
+    data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
+    qq = q;
+
+    // The Xgate test program is in an infinate loop incrementing R3
+    while (qq == q)  // Look for change in R3 register
+      begin
+        u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Do a Single Step
+        repeat(5) @(posedge mstr_test_clk);
+        u0.wb_read(1, XGATE_XGR3, q);
+      end
+    if (q != (qq+1))
+      begin
+        $display("Error! - Unexpected value of R3 at vector=%d", vector);
+        error_count = error_count + 1;
+      end
+
+
+    u0.wb_write(1, XGATE_XGPC, 16'h2094);        // Write to PC to force exit from infinate loop
+    repeat(5) @(posedge mstr_test_clk);
+
+    data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Do a Single Step (Load ADDL instruction)
+    repeat(5) @(posedge mstr_test_clk);
+    u0.wb_cmp(0, XGATE_XGR4,     16'h0002);      // See Program code.(R4 <= R4 + 1)
+
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Do a Single Step (Load ADDL instruction)
+    repeat(5) @(posedge mstr_test_clk);
+    u0.wb_cmp(0, XGATE_XGR4,     16'h0003);      // See Program code.(R4 <= R4 + 1)
+
+    data_xgmctl = XGMCTL_XGDBGM;
+    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Debug Mode Control Bit
                                                  // Should be back in Run Mode
-    wait_irq_set(1);
-    u0.wb_write(1, XGATE_XGIF_0, 16'h0004);
-    
-    data_xgmctl = XGMCTL_XGSWEIFM | XGMCTL_XGSWEIF | XGMCTL_XGBRKIEM;
-    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Software Interrupt and BRK Interrupt Enable Bit
+
+//    data_xgmctl = XGMCTL_XGSWEIFM | XGMCTL_XGSWEIF | XGMCTL_XGBRKIEM;
+//    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Software Interrupt and BRK Interrupt Enable Bit
     repeat(15) @(posedge mstr_test_clk);
-    
+
   end
 endtask
 
@@ -445,12 +543,12 @@ task test_debug_mode;
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, test_debug_mode", test_num, vector);
     $readmemh("../../../bench/verilog/debug_test.v", ram_8);
-    
+
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
     u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Enable interrupt on BRK instruction
 
     activate_thread_sw(1);
-    
+
     wait_debug_set;   // Debug Status bit is set by BRK instruction
 
     u0.wb_cmp(0, XGATE_XGPC,     16'h203a);      // See Program code (BRK).
@@ -479,7 +577,7 @@ task test_debug_mode;
     repeat(5) @(posedge mstr_test_clk);          // Execute BRA instruction
     u0.wb_cmp(0, XGATE_XGPC,     16'h2064);      // PC = Branch destination.
                                                  // Load ADDL instruction
-    
+
     u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Do a Single Step (Load LDW R7 instruction)
     repeat(5) @(posedge mstr_test_clk);          // Execute ADDL instruction
     u0.wb_cmp(0, XGATE_XGPC,     16'h2066);      // PC + 2.
@@ -506,31 +604,31 @@ task test_debug_mode;
 
     repeat(5) @(posedge mstr_test_clk);
 
-    data_xgmctl = XGMCTL_XGDBGM | XGMCTL_XGDBG;
-    u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Set Debug Mode Control Bit
     data_xgmctl = XGMCTL_XGDBGM;
     u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Debug Mode Control Bit
                                                  // Should be back in Run Mode
     wait_irq_set(1);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0002);
-    
+
     data_xgmctl = XGMCTL_XGSWEIFM | XGMCTL_XGSWEIF | XGMCTL_XGBRKIEM;
     u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Software Interrupt and BRK Interrupt Enable Bit
     repeat(15) @(posedge mstr_test_clk);
-    
+
   end
 endtask
 
 // Test instruction set
 task test_inst_set;
   begin
+    $readmemh("../../../bench/verilog/inst_test.v", ram_8);
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, inst_test", test_num, vector);
+    repeat(1) @(posedge mstr_test_clk);
 
     activate_thread_sw(1);
     wait_irq_set(1);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0002);
-    
+
     activate_thread_sw(2);
     wait_irq_set(2);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0004);
@@ -538,44 +636,44 @@ task test_inst_set;
     activate_thread_sw(3);
     wait_irq_set(3);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0008);
-    
+
     activate_thread_sw(4);
     wait_irq_set(4);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0010);
-    
+
     activate_thread_sw(5);
     wait_irq_set(5);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0020);
-    
+
     activate_thread_sw(6);
     wait_irq_set(6);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0040);
-    
+
     activate_thread_sw(7);
     wait_irq_set(7);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0080);
-    
+
     activate_thread_sw(8);
     wait_irq_set(8);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0100);
-    
+
     activate_thread_sw(9);
     wait_irq_set(9);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0200);
-    
+
     u0.wb_write(1, XGATE_XGSEM, 16'h5050);
     u0.wb_cmp(0, XGATE_XGSEM,    16'h0050);   //
     activate_thread_sw(10);
     wait_irq_set(10);
     u0.wb_write(1, XGATE_XGIF_0, 16'h0400);
-    
+
     u0.wb_write(1, XGATE_XGSEM, 16'hff00);    // clear the old settings
     u0.wb_cmp(0, XGATE_XGSEM,    16'h0000);   //
     u0.wb_write(1, XGATE_XGSEM, 16'ha0a0);    // Verify that bits were unlocked by RISC
     u0.wb_cmp(0, XGATE_XGSEM,    16'h00a0);   // Verify bits were set
     u0.wb_write(1, XGATE_XGSEM, 16'hff08);    // Try to set the bit that was left locked by the RISC
     u0.wb_cmp(0, XGATE_XGSEM,    16'h0000);   // Verify no bits were set
-    
+
     repeat(20) @(posedge mstr_test_clk);
 
     dump_ram(0);
@@ -682,10 +780,10 @@ endtask
 task activate_channel;
   input [ 6:0] chan_val;
   begin
-      $display("Activating Channel %d", chan_val);
+    $display("Activating Channel %d", chan_val);
 
-      channel_req[chan_val] = 1'b1; // 
-      repeat(1) @(posedge mstr_test_clk);
+    channel_req[chan_val] = 1'b1; //
+    repeat(1) @(posedge mstr_test_clk);
   end
 endtask
 
@@ -693,11 +791,11 @@ endtask
 task clear_channel;
   input [ 6:0] chan_val;
   begin
-      $display("Clearing Channel interrupt input #%d", chan_val);
+    $display("Clearing Channel interrupt input #%d", chan_val);
 
-      channel_req[chan_val] = 1'b0; // 
-      repeat(1) @(posedge mstr_test_clk);
-   end
+    channel_req[chan_val] = 1'b0; //
+    repeat(1) @(posedge mstr_test_clk);
+  end
 endtask
 
 
@@ -722,7 +820,7 @@ task clear_irq_flag;
       if (111 < chan_val < 128)
         u0.wb_write(1, XGATE_XGIF_7, 16'hffff);
 
-      channel_req[chan_val] = 1'b0; // 
+      channel_req[chan_val] = 1'b0; //
       repeat(1) @(posedge mstr_test_clk);
    end
 endtask
@@ -736,7 +834,7 @@ task activate_thread_sw;
       data_xgmctl = XGMCTL_XGEM | XGMCTL_XGE;
       u0.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Enable XGATE
 
-      channel_req[chan_val] = 1'b1; // 
+      channel_req[chan_val] = 1'b1; //
       repeat(1) @(posedge mstr_test_clk);
    end
 endtask
@@ -747,29 +845,31 @@ task dump_ram;
   integer i, j;
   begin
       $display("Dumping RAM - Starting Address #%h", start_address);
-      
+
       dump_address = start_address;
       while (dump_address <= start_address + 16'h0080)
-	begin
-	  $write("Address = %h", dump_address);
+        begin
+          $write("Address = %h", dump_address);
           for (i = 0; i < 16; i = i + 1)
             begin
-	      $write(" %h", ram_8[dump_address]);
-	      dump_address = dump_address + 1;
-	    end
-	$write("\n");
-	end
+              $write(" %h", ram_8[dump_address]);
+              dump_address = dump_address + 1;
+            end
+        $write("\n");
+        end
 
   end
 endtask
 
 task wrap_up;
   begin
+    test_num = test_num + 1;
+    repeat(10) @(posedge mstr_test_clk);
     $display("\nSimulation Finished!! - vector =%d", vector);
     if (error_count == 0)
       $display("Simulation Passed");
     else
-      $display("Simulation Failed");
+      $display("Simulation Failed  --- Errors =%d", error_count);
 
     $finish;
   end
