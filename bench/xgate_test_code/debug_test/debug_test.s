@@ -15,16 +15,16 @@
 	DC.W	_START2	; point to start address
 	DC.W	V_PTR   ; point to initial variables
 	; channel 3
-	DC.W	_ERROR	; point to start address
+	DC.W	_START3	; point to start address
 	DC.W	V_PTR   ; point to initial variables
 	; channel 4
-	DC.W	_ERROR	; point to start address
+	DC.W	_START4	; point to start address
 	DC.W	V_PTR   ; point to initial variables
 	; channel 5
-	DC.W	_ERROR	; point to start address
+	DC.W	_START5	; point to start address
 	DC.W	V_PTR   ; point to initial variables
 	; channel 6
-	DC.W	_ERROR	; point to start address
+	DC.W	_START6	; point to start address
 	DC.W	V_PTR   ; point to initial variables
 	; channel 7
 	DC.W	_ERROR	; point to start address
@@ -137,13 +137,14 @@ _START2
 	LDH     R2,#$80
 	LDL     R3,#$03
 	STB     R3,(R2,#0)
+	LDL     R3,#$02    ; Thread Value
 	STB     R3,(R2,#2) ; Send Message to clear Testbench interrupt register
 
 
 	; Test
 	LDL	R3,#$01		; R3 = $01
 	LDL	R4,#$01		; R4 = $01
-	LDL	R7,#$01		; R4 = $01
+	LDL	R7,#$03		; R7 = $03
 	
 _T2_LOOP
 	ADDL    R3,#$01		; R3 + $01 => R3 (R3 = $02)
@@ -152,7 +153,11 @@ _T2_LOOP
 				;  take control using the Debug bit and change
 				;  the PC to exit the loop.
 
+	NOP
+	NOP
+	ADDL    R4,#$60		; For error detection
 	ADDL    R4,#$01		; Test bench will set the PC to here
+	ADDL    R4,#$01		; 
 
 	CMP     R4,R7    	; Check Load and Store commands received correct data
 	BNE     _FAIL2
@@ -170,6 +175,139 @@ _FAIL2
 	LDL	R2,#$04    ; Sent Message to Testbench Error Register
 	LDH     R2,#$80
 	LDL     R3,#$02
+	STB     R3,(R2,#0)
+
+        SIF
+	RTS
+
+;-------------------------------------------------------------------------------
+;   Test Debug and Change Channel ID Command
+;-------------------------------------------------------------------------------
+_START3
+	LDL	R2,#$00    ; Sent Message to Testbench Check Point Register
+	LDH     R2,#$80
+	LDL     R3,#$05
+	STB     R3,(R2,#0)
+	LDL     R3,#$03    ; Thread Value
+	STB     R3,(R2,#2) ; Send Message to clear Testbench interrupt register
+
+
+	; Test
+	LDL	R3,#$01		; R3 = $01
+	LDL	R4,#$01		; R4 = $01
+	LDL	R7,#$03		; R7 = $03
+	
+	BRK			; Enter Debug mode
+
+	; The testbench will use writes to the XGCHID reg to move to another
+	;  channel to complete the test.
+
+_FAIL3
+	LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$03
+	STB     R3,(R2,#0)
+
+        SIF
+	RTS
+
+;-------------------------------------------------------------------------------
+;   Target for debug mode change CHID Command
+;-------------------------------------------------------------------------------
+_START4
+	LDL	R2,#$00    ; Sent Message to Testbench Check Point Register
+	LDH     R2,#$80
+	LDL     R3,#$06
+	STB     R3,(R2,#0)
+
+
+	; Test
+	BRK	
+	
+_END_4	LDL	R2,#$00		; Sent Message to Testbench Check Point Register
+	LDH     R2,#$80
+	LDL     R3,#$07
+	STB     R3,(R2,#0)
+	
+	SIF	
+	RTS
+
+
+_FAIL4
+	LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$04
+	STB     R3,(R2,#0)
+
+        SIF
+	RTS
+
+;-------------------------------------------------------------------------------
+;   False Target for debug mode change CHID Command
+;    Verify that when the CHID command is issued that a higher poririty interrup
+;    dosn't slip in.
+;-------------------------------------------------------------------------------
+_START5
+	LDL	R2,#$00    ; Sent Message to Testbench Check Point Register
+	LDH     R2,#$80
+	LDL     R3,#$08
+	STB     R3,(R2,#0)
+	LDL     R3,#$05    ; Thread Value
+	STB     R3,(R2,#2) ; Send Message to clear Testbench interrupt register
+
+
+	; Test
+	BRK	
+	
+_END_5	LDL	R2,#$00		; Sent Message to Testbench Check Point Register
+	LDH     R2,#$80
+	LDL     R3,#$09
+	STB     R3,(R2,#0)
+	
+	SIF	
+	RTS
+
+
+_FAIL5
+	LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$05
+	STB     R3,(R2,#0)
+
+        SIF
+	RTS
+
+;-------------------------------------------------------------------------------
+;   Test Debug and Change Channel ID Command
+;-------------------------------------------------------------------------------
+_START6
+	BRK		   ; Enter Debug mode
+	BRA	_GO6
+	BRA	_FAIL6
+_GO6
+	LDL	R2,#$00    ; Sent Message to Testbench Check Point Register
+	LDH     R2,#$80
+	LDL     R3,#$0a
+	STB     R3,(R2,#0)
+	LDL     R3,#$06    ; Thread Value
+	STB     R3,(R2,#2) ; Send Message to clear Testbench interrupt register
+
+
+	; Test
+
+_END_6	LDL	R2,#$00		; Sent Message to Testbench Check Point Register
+	LDH     R2,#$80
+	LDL     R3,#$0b
+	STB     R3,(R2,#0)
+	
+	SIF	
+	RTS
+
+
+_FAIL6
+	LDL	R2,#$04    ; Sent Message to Testbench Error Register
+	LDH     R2,#$80
+	LDL     R3,#$06
 	STB     R3,(R2,#0)
 
         SIF
