@@ -68,7 +68,6 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                       bus_clk,       // Control register bus clock
   input                       async_rst_b,   // Async reset signal
   input                       sync_reset,    // Syncronous reset signal
-  input                       cop_flag,      // COP Rollover Flag
   input                [15:0] write_bus,     // Write Data Bus
   input                       write_xgmctl,  // Write Strobe for XGMCTL register
   input                       write_xgisp74, // Write Strobe for XGISP74 register
@@ -82,9 +81,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                       write_xgif_2,  // Write Strobe for Interrupt Flag Register 2
   input                       write_xgif_1,  // Write Strobe for Interrupt Flag Register 1
   input                       write_xgif_0,  // Write Strobe for Interrupt Flag Register 0
-  input                       write_xgswt,   // Write Strobe for XGSWT register
-  input                       access_semaph, // Semaphore strobe
-  input                [ 2:0] semaph_risc    // Semaphore register select from RISC
+  input                       write_xgswt    // Write Strobe for XGSWT register
   );
 
 
