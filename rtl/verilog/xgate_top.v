@@ -93,7 +93,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        write_xgmctl;  // Write Strobe for XGMCTL register
   wire        write_xgchid;  // Write Strobe for XGCHID register
   wire        write_xgisp74; // Write Strobe for XGISP74 register
-  wire        write_xgisp31; // Write Strobe for XGISP31 register
+  wire        write_xgisp30; // Write Strobe for XGISP30 register
   wire        write_xgvbr;   // Write Strobe for XGVBR_LO register
   wire        write_xgif_7;  // Write Strobe for Interrupt Flag Register 7
   wire        write_xgif_6;  // Write Strobe for Interrupt Flag Register 6
