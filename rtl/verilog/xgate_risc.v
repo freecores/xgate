@@ -99,9 +99,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input      [15:0] clear_xgif_data // Data for decode to clear interrupt flag
 );
 
-  integer i, j;  // Loop counters for decode of XGATE Interrupt Register
+  integer j;     // Loop counters for decode of XGATE Interrupt Register
   integer k;     // Loop counter for Bit Field Insert decode
-  integer bfi, bfii, bfix;     // Loop counter for Bit Field Insert function
+  integer bfi, bfii;   // Loop counter for Bit Field Insert function
 
   // State machine sequence
   parameter [3:0]      //synopsys enum state_info
@@ -220,7 +220,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   // Decode register select for RD and RS
   always @*
     begin
-      case (op_code[10:8])
+      case (op_code[10:8]) // synopsys parallel_case
         3'b001 : rd_data = xgr1;
         3'b010 : rd_data = xgr2;
         3'b011 : rd_data = xgr3;
@@ -244,7 +244,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       wrt_sel_xgr5 = 1'b0;
       wrt_sel_xgr6 = 1'b0;
       wrt_sel_xgr7 = 1'b0;
-      case (wrt_reg_sel)
+      case (wrt_reg_sel)   // synopsys parallel_case
         3'b001 : wrt_sel_xgr1 = mem_req_ack;
         3'b010 : wrt_sel_xgr2 = mem_req_ack;
         3'b011 : wrt_sel_xgr3 = mem_req_ack;
@@ -257,7 +257,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   // Decode register select for RS1 and RB
   always @*
-    case (op_code[7:5])
+    case (op_code[7:5])  // synopsys parallel_case
       3'b001 : rs1_data = xgr1;
       3'b010 : rs1_data = xgr2;
       3'b011 : rs1_data = xgr3;
@@ -270,7 +270,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   // Decode register select for RS2 and RI
   always @*
-    case (op_code[4:2])
+    case (op_code[4:2])  // synopsys parallel_case
       3'b001 : rs2_data = xgr1;
       3'b010 : rs2_data = xgr2;
       3'b011 : rs2_data = xgr3;
@@ -352,7 +352,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   //  Channel Change Debug next state
   always @*
-    case (chid_sm)
+    case (chid_sm)  // synopsys parallel_case
       CHID_IDLE:
         if ( write_xgchid && debug_active )
           chid_sm_ns  = CHID_TEST;
@@ -852,7 +852,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
 
-           casez (rs1_data)
+           casez (rs1_data)  // synopsys parallel_case
              16'b1???_????_????_???? : alu_result = 16'h000f;
              16'b01??_????_????_???? : alu_result = 16'h000e;
              16'b001?_????_????_???? : alu_result = 16'h000d;
@@ -1815,8 +1815,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            shift_ammount  = {1'b0, rs2_data[3:0]};
            shift_in       = rs1_data;
 
-           for (bfi = 0; bfi <= 15; bfi = bfi + 1)
-             alu_result[bfi] = bf_mux_mask[bfi] ? !(shift_out[bfi] ^ rd_data[bfi]) : rd_data[bfi];
+           for (bfii = 0; bfii <= 15; bfii = bfii + 1)
+             alu_result[bfii] = bf_mux_mask[bfii] ? !(shift_out[bfii] ^ rd_data[bfii]) : rd_data[bfii];
            next_zero     = !(|alu_result);
            next_negative = alu_result[15];
            next_overflow = 1'b0;
@@ -2042,7 +2042,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          end
       default :
         begin
+	  // synopsys translate_off
           $display("\nOP Code Error\n");
+	  // synopsys translate_on
           next_cpu_state   = DEBUG;
           next_pc          = program_counter;
           load_next_inst   = 1'b0;
@@ -2064,7 +2066,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   // Three to Eight line decoder
   always @*
-    case (semaph_risc)
+    case (semaph_risc)  // synopsys parallel_case
       4'h0 : semap_risc_bit = 8'b0000_0001;
       4'h1 : semap_risc_bit = 8'b0000_0010;
       4'h2 : semap_risc_bit = 8'b0000_0100;
@@ -2224,7 +2226,7 @@ module xgate_barrel_shift (
   );
 
   always @*
-    casez ({shift_left, shift_ammount})
+    casez ({shift_left, shift_ammount})  // synopsys parallel_case
      // Start Right Shifts
       6'b0_0_0000 :
         begin
@@ -2453,12 +2455,16 @@ module semaphore_bit #(parameter NO_LOCK   = 2'b00,
           begin
             if (csem && risc_bit_sel)
               next_semap_state = NO_LOCK;
-          end
+            else
+              next_semap_state = RISC_LOCK;
+           end
         HOST_LOCK:
           begin
             if (host_wrt && host_bit_mask && !host_bit)
               next_semap_state = NO_LOCK;
-          end
+            else
+              next_semap_state = HOST_LOCK;
+           end
         default:
           next_semap_state = NO_LOCK;
       endcase
