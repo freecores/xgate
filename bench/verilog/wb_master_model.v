@@ -37,13 +37,13 @@
 
 //  CVS Log
 //
-//  $Id: wb_master_model.v,v 1.4 2004/02/28 15:40:42 rherveille Exp $
+//  $Id$
 //
-//  $Date: 2004/02/28 15:40:42 $
-//  $Revision: 1.4 $
-//  $Author: rherveille $
-//  $Locker:  $
-//  $State: Exp $
+//  $Date$
+//  $Revision$
+//  $Author$
+//  $Locker$
+//  $State$
 //
 // Change History:
 //
