@@ -46,6 +46,7 @@ module xgate_irq_encode #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt
   input [MAX_CHANNEL:0] chan_req_i  // XGATE Interrupt request    
 );
 
+  // Set int_reg to the index of the index of the highest chen_req_i input that is active
   integer i = 0;
   always @(chan_req_i)
     begin
