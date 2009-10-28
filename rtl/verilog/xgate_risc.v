@@ -56,7 +56,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   output reg                 carry_flag,
   output reg                 overflow_flag,
   output reg          [ 6:0] xgchid,
-  output reg [MAX_CHANNEL:0] xgif,          // XGATE Interrupt Flag
+  output reg         [127:0] xgif_status,   // XGATE Interrupt Flag
   output                     xg_sw_irq,     // Xgate Software interrupt
   output              [ 7:0] host_semap,    // Semaphore status for host
   output reg                 debug_active,  // Latch to control debug mode in the RISC state machine
@@ -69,6 +69,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input             mem_req_ack,    // Memory Bus available - data good
   input             xge,            // XGATE Module Enable
   input             xgfrz,          // Stop XGATE in Freeze Mode
+  input             debug_mode_i,   // Force RISC core into debug mode
   input             xgdbg_set,      // Enter XGATE Debug Mode
   input             xgdbg_clear,    // Leave XGATE Debug Mode
   input             xgss,           // XGATE Single Step
@@ -174,7 +175,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         wrt_sel_xgr6;   // Pseudo Register,
   reg         wrt_sel_xgr7;   // Pseudo Register,
 
-  reg [MAX_CHANNEL:0] xgif_d;
+  reg [127:0] xgif_d;
 
   reg  [15:0] shift_in;
   wire [15:0] shift_out;
@@ -193,7 +194,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         brk_set_dbg;   // Pulse to set debug_active from instruction decoder
   reg         cmd_change_pc; // Debug write to PC register
 
-  reg  [ 1:0] chid_sm_ns;    // Pseudo Register,
+  reg  [ 1:0] chid_sm_ns;    // Pseudo Register for State Machine next state logic,
   reg  [ 1:0] chid_sm;       //
   wire        chid_goto_idle; //
 
@@ -412,36 +413,37 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   //  Interrupt Flag next value
   always @*
     begin
+      xgif_d = 0;
       j = 0;
       while (j <= MAX_CHANNEL)
         begin
-         xgif_d[j]  = xgif[j] || (set_irq_flag == j);
+         xgif_d[j]  = xgif_status[j] || (set_irq_flag == j);
          j = j + 1;
         end
         if (clear_xgif_0)
-          xgif_d[15: 0]  = ~clear_xgif_data & xgif[15: 0];
+          xgif_d[15: 0]  = ~clear_xgif_data & xgif_status[15: 0];
         if (clear_xgif_1)
-          xgif_d[31:16]  = ~clear_xgif_data & xgif[31:16];
+          xgif_d[31:16]  = ~clear_xgif_data & xgif_status[31:16];
         if (clear_xgif_2)
-          xgif_d[47:32]  = ~clear_xgif_data & xgif[47:32];
+          xgif_d[47:32]  = ~clear_xgif_data & xgif_status[47:32];
         if (clear_xgif_3)
-          xgif_d[63:48]  = ~clear_xgif_data & xgif[63:48];
+          xgif_d[63:48]  = ~clear_xgif_data & xgif_status[63:48];
         if (clear_xgif_4)
-          xgif_d[79:64]  = ~clear_xgif_data & xgif[79:64];
+          xgif_d[79:64]  = ~clear_xgif_data & xgif_status[79:64];
         if (clear_xgif_5)
-          xgif_d[95:80]  = ~clear_xgif_data & xgif[95:80];
+          xgif_d[95:80]  = ~clear_xgif_data & xgif_status[95:80];
         if (clear_xgif_6)
-          xgif_d[111:96]  = ~clear_xgif_data & xgif[111:96];
+          xgif_d[111:96]  = ~clear_xgif_data & xgif_status[111:96];
         if (clear_xgif_7)
-          xgif_d[127:112]  = ~clear_xgif_data & xgif[127:112];
+          xgif_d[127:112]  = ~clear_xgif_data & xgif_status[127:112];
     end
 
   //  Interrupt Flag Registers
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
-      xgif  <= 0;
+      xgif_status  <= 0;
     else
-      xgif  <= xgif_d;
+      xgif_status  <= xgif_d;
 
 
   //  RISC Data Registers
