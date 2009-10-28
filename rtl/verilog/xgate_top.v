@@ -72,6 +72,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   output [MAX_CHANNEL:0] xgif,             // XGATE Interrupt Flag
   input  [MAX_CHANNEL:0] chan_req_i,       // XGATE Interrupt request
   input                  risc_clk,         // Clock for RISC core
+  input                  debug_mode_i,     // Force RISC core into debug mode
+  input                  secure_mode_i,    // Limit host asscess to Xgate RISC registers
   input                  scantestmode      // Chip in in scan test mode
   );
 
@@ -134,6 +136,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        xgie;          // XGATE Interrupt Enable
   wire [ 6:0] int_req;       // Encoded interrupt request
   wire [ 6:0] xgchid;        // Channel actively being processed
+  wire [127:0] xgif_status;   // Status bits of interrupt output flags that have been set
   wire [15:1] xgvbr;         // XGATE vector Base Address Register
   wire        brk_irq_ena;   // Enable BRK instruction to generate interrupt
   
@@ -149,7 +152,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 //  wire [15:0] read_mem_data;
 //  wire [15:0] perif_data;
   
-
+  assign xgif = xgif_status[MAX_CHANNEL:0];
   // ---------------------------------------------------------------------------
   // Wishbone Slave Bus interface
   xgate_wbs_bus #(.ARST_LVL(ARST_LVL),
@@ -209,14 +212,14 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 		     16'b0,                // Reserved
 		     {8'h00, host_semap},  // XGSEM
 		     {8'h00, xgswt},       // XGSWT
-		     xgif[ 15:  0],        // XGIF_0
-		     xgif[ 31: 16],        // XGIF_1
-		     xgif[ 47: 32],        // XGIF_2
-		     xgif[ 63: 48],        // XGIF_3
-		     xgif[ 79: 64],        // XGIF_4
-		     xgif[ 95: 80],        // XGIF_5
-		     xgif[111: 96],        // XGIF_6
-		     xgif[127:112],        // XGIF_7
+		     xgif_status[ 15:  0], // XGIF_0
+		     xgif_status[ 31: 16], // XGIF_1
+		     xgif_status[ 47: 32], // XGIF_2
+		     xgif_status[ 63: 48], // XGIF_3
+		     xgif_status[ 79: 64], // XGIF_4
+		     xgif_status[ 95: 80], // XGIF_5
+		     xgif_status[111: 96], // XGIF_6
+		     xgif_status[127:112], // XGIF_7
 		     {xgvbr[15:1], 1'b0},  // XGVBR
 		     xgisp30,              // Reserved
 		     xgisp74,              // Reserved
@@ -294,7 +297,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgr5( xgr5 ),
     .xgr6( xgr6 ),
     .xgr7( xgr7 ),
-    .xgif( xgif ),
+    .xgif_status( xgif_status ),
     .debug_active( debug_active ),
     .xg_sw_irq( xg_sw_irq ),
   
@@ -308,6 +311,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgfrz( xgfrz ),
     .xgdbg_set( xgdbg_set ),
     .xgdbg_clear( xgdbg_clear ),
+    .debug_mode_i(debug_mode_i),
     .xgss( xgss ),
     .xgvbr( xgvbr ),
     .int_req( int_req ),
