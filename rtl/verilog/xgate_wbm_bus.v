@@ -54,7 +54,7 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                    wbs_clk_i,     // master clock input
   input                    wbs_rst_i,     // synchronous active high reset
   input                    arst_i,        // asynchronous reset
- // XGATE Control Signals
+  // XGATE Control Signals
   output      [DWIDTH-1:0] read_mem_data,    // Data from system memory
   output                   mem_req_ack,      // Memory bus transaction complete
   input             [15:0] xgate_address,    // Address to system memory
@@ -80,5 +80,13 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   assign wbm_adr_o = xgate_address;
   
   assign mem_req_ack = wbm_ack_i;
+  
+  assign wbm_we_o = write_mem_strb_h || write_mem_strb_l;
+  
+  assign wbm_sel_o = {write_mem_strb_h, write_mem_strb_l};
+  
+  assign wbm_cyc_o = 1'b1;
+  
+  assign wbm_stb_o = 1'b1;
 
 endmodule  // xgate_wbm_bus
