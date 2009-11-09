@@ -20,6 +20,7 @@ iverilog				\
 	$xgate/rtl/verilog/xgate_irq_encode.v	\
 					\
 	$bench/verilog/wb_master_model.v	\
+	$bench/verilog/ram.v	        \
 	$bench/verilog/tst_bench_top.v
 
 @ good_compile = $status
