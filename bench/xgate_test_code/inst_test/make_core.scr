@@ -1,3 +1,0 @@
-../../../bench/tools/HSW12ASM/hsw12asm.pl inst_test.s
-../../../bench/tools/a.out inst_test_pag.s28
-mv inst_test_pag.v ../../../bench/verilog/inst_test.v
