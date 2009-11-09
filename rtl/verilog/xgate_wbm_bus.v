@@ -57,23 +57,21 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   // XGATE Control Signals
   output      [DWIDTH-1:0] read_mem_data,    // Data from system memory
   output                   mem_req_ack,      // Memory bus transaction complete
+  input                    xge,              // XGATE Enabled
   input             [15:0] xgate_address,    // Address to system memory
+  input                    mem_access,       // 
   input                    write_mem_strb_l, // Strobe for writing low data byte
   input                    write_mem_strb_h, // Strobe for writing high data bye
   input       [DWIDTH-1:0] write_mem_data    // Data to system memory
   );
 
 
-  // registers
-
-  // Wires
+  // Wires and Registers
   wire   module_sel;       // This module is selected for bus transaction
 
   //
-  // module body
+  // Module body
   //
-
-  // generate internal resets
   
   assign wbm_dat_o = write_mem_data;
   assign read_mem_data = wbm_dat_i;
@@ -85,8 +83,8 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   
   assign wbm_sel_o = {write_mem_strb_h, write_mem_strb_l};
   
-  assign wbm_cyc_o = 1'b1;
+  assign wbm_cyc_o = xge && mem_access;
   
-  assign wbm_stb_o = 1'b1;
+  assign wbm_stb_o = xge && mem_access;
 
 endmodule  // xgate_wbm_bus

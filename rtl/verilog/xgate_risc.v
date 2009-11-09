@@ -49,6 +49,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   output reg [15:0] xgr7,
   output     [15:0] xgate_address,
   output     [15:0] write_mem_data,   // Data for Memory write
+  output            mem_access,       // 
   output            write_mem_strb_l, // Strobe for writing low data byte
   output            write_mem_strb_h, // Strobe for writing high data bye
   output reg                 zero_flag,
@@ -205,6 +206,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
 
   assign xgate_address = data_access ? data_address : program_counter;
+  
+  assign mem_access = data_access || load_next_inst;
 
   // Generate an address for an op code fetch from an odd address or a word Load/Store from/to an odd address.
   assign addr_error = xgate_address[0] && (load_next_inst || (data_access && data_word_op));

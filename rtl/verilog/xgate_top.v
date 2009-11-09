@@ -143,6 +143,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire [15:0] xgate_address;   //
   wire [15:0] write_mem_data;  //
   wire [15:0] read_mem_data;   //
+  wire        mem_access;      //
   wire        mem_req_ack;     //
 
   wire        debug_active;    // RISC state machine in Debug mode 
@@ -300,6 +301,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgif_status( xgif_status ),
     .debug_active( debug_active ),
     .xg_sw_irq( xg_sw_irq ),
+    .mem_access( mem_access ),
   
     // inputs
     .risc_clk( risc_clk ),
@@ -365,6 +367,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .wbs_rst_i( wbs_rst_i ),
     .arst_i( arst_i ),
  // XGATE Control Signals
+    .xge( xge ),
+    .mem_access( mem_access ),
     .read_mem_data( read_mem_data ),
     .xgate_address( xgate_address ),
     .mem_req_ack( mem_req_ack ),
