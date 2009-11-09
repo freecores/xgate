@@ -106,8 +106,9 @@ task wb_write;
         input   delay;
         integer delay;
 
-        input   [awidth -1:0]   a;
-        input   [dwidth -1:0]   d;
+        input   [awidth   -1:0] a;
+        input   [dwidth   -1:0] d;
+	input   [dwidth/8 -1:0] s;
 
         begin
                 -> test_command_start;
@@ -121,7 +122,7 @@ task wb_write;
                 cyc  = 1'b1;
                 stb  = 1'b1;
                 we   = 1'b1;
-                sel  = {dwidth/8{1'b1}};
+                sel  = s;
                 @(posedge clk);
                 -> test_command_mid;
 
@@ -151,8 +152,9 @@ task wb_read;
         input   delay;
         integer delay;
 
-        input   [awidth -1:0]  a;
-        output  [dwidth -1:0]  d;
+        input   [awidth   -1:0] a;
+        output  [dwidth   -1:0] d;
+	input   [dwidth/8 -1:0] s;
 
         begin
 
@@ -166,7 +168,7 @@ task wb_read;
                 cyc  = 1'b1;
                 stb  = 1'b1;
                 we   = 1'b0;
-                sel  = {dwidth/8{1'b1}};
+                sel  = s;
                 @(posedge clk);
 
                 // wait for acknowledge from slave
@@ -194,11 +196,12 @@ task wb_cmp;
         input   delay;
         integer delay;
 
-        input [awidth -1:0]     a;
-        input [dwidth -1:0]     d_exp;
+        input [awidth   -1:0] a;
+        input [dwidth   -1:0] d_exp;
+	input [dwidth/8 -1:0] s;
 
         begin
-                wb_read (delay, a, q);
+                wb_read (delay, a, q, s);
 
                 if (d_exp !== q)
 		  begin
