@@ -3,6 +3,21 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Nov 09,2009
+RTL - 85% done - Minor changes to Mastermode bus.
+
+Updates to testbench, Moved RAM.to submodule, Added bus arbitration module
+   but this is not fully functional. Causes timing problems when master is
+   polling xgate registers durning debug mode tests. Will probably change RAM
+   model to dual port in next revision.
+   Updated master module to include WISHBONE select inputs.
+
+Updates to User Guide.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Oct 07,2009
 RTL - 85% done
 All debug commands now working, including writes to XGCHID register.
