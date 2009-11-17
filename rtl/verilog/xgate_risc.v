@@ -110,8 +110,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
        IDLE    = 4'b0000,      // waiting for interrupt
        CONT    = 4'b0001,      // Instruction processing state, first state
        S_STALL = 4'b0010,      // Simple Stall while updating PC after change of flow
-       W_STALL = 4'b0011,      // Stall while doing memory word read access
-       B_STALL = 4'b0100,      // Stall while doing memory byte read access
+       W_STORE = 4'b1101,      // Stall while doing memory word write access
+       W_LOAD  = 4'b0011,      // Stall while doing memory word read access
+       B_LOAD  = 4'b0100,      // Stall while doing memory byte read access
        BREAK   = 4'b0101,      // Stop in this state after BRK instruction
        BREAK_2 = 4'b0110,      // Advance PC after Single Step command
        LD_INST = 4'b0111,      // Load Instruction in Debug mode
@@ -132,7 +133,11 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg  [ 3:0] next_cpu_state;    // Pseudo Register,
   reg         load_next_inst;    // Pseudo Register,
   reg  [15:0] program_counter;   // Program Counter register
-  reg  [15:0] next_pc;           // Pseudo Register,
+  wire [15:0] pc_sum;            // Program Counter Adder
+  reg  [15:0] pc_incr_mux;       // Pseudo Register, mux to select the Program Counter Increment value
+  reg  [15:0] next_pc;           // Pseudo Register
+  wire [15:0] jump_offset;       // Address offset to be added to pc on conditional branch instruction
+  wire [15:0] bra_offset;        // Address offset to be added to pc on branch always instruction
   reg  [15:0] alu_result;        // Pseudo Register,
   reg  [15:0] op_code;           // Register for instruction being executed
   reg         ena_rd_low_byte;   // Pseudo Register,
@@ -204,6 +209,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
                   CHID_TEST = 2'b10,
                   CHID_WAIT = 2'b11;
 
+  assign jump_offset = {{6{op_code[8]}}, op_code[8:0], 1'b0};
+  assign bra_offset  = {{5{op_code[9]}}, op_code[9:0], 1'b0};
+  assign pc_sum      = program_counter + pc_incr_mux;
 
   assign xgate_address = data_access ? data_address : program_counter;
   
@@ -504,8 +512,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       next_cpu_state = debug_active ? LD_INST : CONT;
       load_next_inst = 1'b1;
-      // next_pc        = debug_active ? program_counter : program_counter + 16'h0002;
-      next_pc        = program_counter + 16'h0002;
+      pc_incr_mux    = 16'h0002;  // Verilog Instruction order dependent
+      next_pc        = pc_sum;    // ""
 
       next_zero      = zero_flag;
       next_negative  = negative_flag;
@@ -539,7 +547,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       {IDLE, 16'b????????????????} :
          begin
            next_cpu_state   = start_thread ? BOOT_1 : IDLE;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            load_next_inst   = 1'b0;
          end
 
@@ -552,7 +561,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 	   else
              next_cpu_state = CHG_CHID;	     
 
-	   next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            load_next_inst   = 1'b0;
          end
 
@@ -560,7 +570,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       {BOOT_1, 16'b????????????????} :
          begin
            next_cpu_state   = BOOT_2;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            load_next_inst   = 1'b0;
            data_access      = 1'b1;
            data_word_op     = 1'b1;
@@ -585,7 +596,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       {BOOT_3, 16'b????????????????} :
          begin
            next_cpu_state   = CONT;
-           load_next_inst   = 1'b1;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
            alu_result       = load_data;
@@ -601,25 +611,22 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              next_cpu_state = CHG_CHID;
 	   else
              next_cpu_state = BREAK;	     
-//             next_cpu_state = (xge && !chid_goto_idle) ?
-//	                    ((single_step || !debug_active) ?
-//			    BREAK_2 : BREAK) : IDLE;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
          end
 
       {BREAK_2, 16'b????????????????} :
          begin
            next_cpu_state = LD_INST;
            load_next_inst = 1'b0;
-           next_pc        = program_counter + 2;
          end
 
       {LD_INST, 16'b????????????????} :
          begin
            next_cpu_state = DEBUG;
-           load_next_inst = 1'b1;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
          end
 
       {DEBUG, 16'b????????????????} :
@@ -635,11 +642,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 	   else
              next_cpu_state = DEBUG;	     
 
-//           next_cpu_state = (xge && !chid_goto_idle) ?
-//	                    ((single_step || !debug_active) ?
-//			    CONT : (cmd_change_pc ? LD_INST : DEBUG)) : IDLE;
            load_next_inst = cmd_change_pc;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
          end
 
       // Pause here for program counter change of flow or memory write access
@@ -651,8 +656,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       // Pause here for memory read word access
       //  Load next instruction and increment PC
-      {W_STALL, 16'b????????????????} :
+      {W_LOAD, 16'b????????????????} :
          begin
+           // alu_result       = read_mem_data;
            alu_result       = load_data;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
@@ -660,8 +666,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       // Pause here for memory read byte access
       //  Load next instruction and increment PC
-      {B_STALL, 16'b????????????????} :
+      {B_LOAD, 16'b????????????????} :
          begin
+           // alu_result       = {8'h00, read_mem_data[15:8]};
            alu_result       = {8'h00, load_data[15:8]};
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
@@ -676,7 +683,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       {CONT, 16'b0000000000000000} :
          begin
            next_cpu_state   = BREAK;
-           next_pc          = program_counter - 16'h0002;
+           pc_incr_mux      = 16'hfffe;  // equals -2
+           next_pc          = pc_sum;
            load_next_inst   = 1'b0;
            brk_set_dbg      = 1'b1;
          end
@@ -691,7 +699,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       {CONT, 16'b0000001000000000} :
          begin
            next_cpu_state   = IDLE;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            load_next_inst   = 1'b0;
          end
 
@@ -1266,7 +1275,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;  // There is a race condition when the default declaration is used
              end
          end
 
@@ -1280,7 +1290,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1294,7 +1305,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1308,7 +1320,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1322,7 +1335,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1336,7 +1350,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1350,7 +1365,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1364,7 +1380,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1378,7 +1395,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1392,7 +1410,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1406,7 +1425,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1420,7 +1440,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1434,7 +1455,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1448,7 +1470,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
              begin
                next_cpu_state = S_STALL;
                load_next_inst = 1'b0;
-               next_pc        = program_counter + {{6{op_code[8]}}, op_code[8:0], 1'b0};
+               pc_incr_mux    = jump_offset;
+               next_pc        = pc_sum;
              end
          end
 
@@ -1460,7 +1483,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state = S_STALL;
            load_next_inst = 1'b0;
-           next_pc        = program_counter + {{5{op_code[9]}}, op_code[9:0], 1'b0};
+           pc_incr_mux    = bra_offset;
+           next_pc        = pc_sum;
          end
 
 
@@ -1475,9 +1499,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - Pr
       {CONT, 16'b01000???????????} :
          begin
-           next_cpu_state = B_STALL;
+           next_cpu_state = B_LOAD;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_address   = rs1_data + {11'b0, op_code[4:0]};
          end
@@ -1489,9 +1514,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - PR
       {CONT, 16'b01001???????????} :
          begin
-           next_cpu_state = W_STALL;
+           next_cpu_state = W_LOAD;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_address   = rs1_data + {11'b0, op_code[4:0]};
            data_word_op   = 1'b1;
@@ -1506,7 +1532,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state = S_STALL;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_write     = 1'b1;
            data_address   = rs1_data + {11'b0, op_code[4:0]};
@@ -1521,7 +1548,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state = S_STALL;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_write     = 1'b1;
            data_address   = rs1_data + {11'b0, op_code[4:0]};
@@ -1535,9 +1563,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - Pr
       {CONT, 16'b01100?????????00} :
          begin
-           next_cpu_state = B_STALL;
+           next_cpu_state = B_LOAD;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_address   = rs1_data + rs2_data;
          end
@@ -1549,9 +1578,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - PR
       {CONT, 16'b01101?????????00} :
          begin
-           next_cpu_state = W_STALL;
+           next_cpu_state = W_LOAD;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_address   = rs1_data + rs2_data;
            data_word_op   = 1'b1;
@@ -1566,7 +1596,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state = S_STALL;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_write     = 1'b1;
            data_address   = rs1_data + rs2_data;
@@ -1581,7 +1612,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state = S_STALL;
            load_next_inst = 1'b0;
-           next_pc        = program_counter;
+           pc_incr_mux    = 16'h0000;
+           next_pc        = pc_sum;
            data_access    = 1'b1;
            data_write     = 1'b1;
            data_address   = rs1_data + rs2_data;
@@ -1597,9 +1629,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - Pr
       {CONT, 16'b01100?????????01} :
          begin
-           next_cpu_state   = B_STALL;
+           next_cpu_state   = B_LOAD;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            data_address     = rs1_data + rs2_data;
            alu_result       = rs2_data + 16'h0001;
@@ -1617,9 +1650,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - PR
       {CONT, 16'b01101?????????01} :
          begin
-           next_cpu_state   = W_STALL;
+           next_cpu_state   = W_LOAD;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            data_address     = rs1_data + rs2_data;
            data_word_op     = 1'b1;
@@ -1638,7 +1672,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state   = S_STALL;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            data_write       = 1'b1;
            data_address     = rs1_data + rs2_data;
@@ -1657,7 +1692,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state   = S_STALL;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            data_write       = 1'b1;
            data_word_op     = 1'b1;
@@ -1675,9 +1711,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - Pr
       {CONT, 16'b01100?????????10} :
          begin
-           next_cpu_state   = B_STALL;
+           next_cpu_state   = B_LOAD;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            alu_result       = rs2_data + 16'hffff;
            data_address     = rs1_data + alu_result;
@@ -1693,9 +1730,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // Cycles - PR
       {CONT, 16'b01101?????????10} :
          begin
-           next_cpu_state   = W_STALL;
+           next_cpu_state   = W_LOAD;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            alu_result       = rs2_data + 16'hfffe;
            data_address     = rs1_data + alu_result;
@@ -1716,7 +1754,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state   = S_STALL;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            data_write       = 1'b1;
            alu_result       = rs2_data + 16'hffff;
@@ -1737,7 +1776,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
            next_cpu_state   = S_STALL;
            load_next_inst   = 1'b0;
-           next_pc          = program_counter;
+           pc_incr_mux      = 16'h0000;
+           next_pc          = pc_sum;
            data_access      = 1'b1;
            data_write       = 1'b1;
            data_word_op     = 1'b1;
@@ -2051,11 +2091,13 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
           $display("\nOP Code Error\n");
 	  // synopsys translate_on
           next_cpu_state   = DEBUG;
-          next_pc          = program_counter;
+          pc_incr_mux      = 16'h0000;
+          next_pc          = pc_sum;
           load_next_inst   = 1'b0;
           op_code_error    = 1'b1;
         end
     endcase
+    
     end  // always
 
   xgate_barrel_shift barrel_shift(
