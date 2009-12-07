@@ -72,15 +72,15 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                       write_xgmctl,  // Write Strobe for XGMCTL register
   input                       write_xgisp74, // Write Strobe for XGISP74 register
   input                       write_xgisp30, // Write Strobe for XGISP30 register
-  input                       write_xgvbr,   // Write Strobe for XGVBR register
-  input                       write_xgif_7,  // Write Strobe for Interrupt Flag Register 7
-  input                       write_xgif_6,  // Write Strobe for Interrupt Flag Register 6
-  input                       write_xgif_5,  // Write Strobe for Interrupt Flag Register 5
-  input                       write_xgif_4,  // Write Strobe for Interrupt Flag Register 4
-  input                       write_xgif_3,  // Write Strobe for Interrupt Flag Register 3
-  input                       write_xgif_2,  // Write Strobe for Interrupt Flag Register 2
-  input                       write_xgif_1,  // Write Strobe for Interrupt Flag Register 1
-  input                       write_xgif_0,  // Write Strobe for Interrupt Flag Register 0
+  input                [ 1:0] write_xgvbr,   // Write Strobe for XGVBR register
+  input                [ 1:0] write_xgif_7,  // Write Strobe for Interrupt Flag Register 7
+  input                [ 1:0] write_xgif_6,  // Write Strobe for Interrupt Flag Register 6
+  input                [ 1:0] write_xgif_5,  // Write Strobe for Interrupt Flag Register 5
+  input                [ 1:0] write_xgif_4,  // Write Strobe for Interrupt Flag Register 4
+  input                [ 1:0] write_xgif_3,  // Write Strobe for Interrupt Flag Register 3
+  input                [ 1:0] write_xgif_2,  // Write Strobe for Interrupt Flag Register 2
+  input                [ 1:0] write_xgif_1,  // Write Strobe for Interrupt Flag Register 1
+  input                [ 1:0] write_xgif_0,  // Write Strobe for Interrupt Flag Register 0
   input                       write_xgswt    // Write Strobe for XGSWT register
   );
 
@@ -88,7 +88,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   // registers
 
   // Wires
-  wire write_any_xgif;
+  wire [ 1:0] write_any_xgif;
 
   //
   // module body
@@ -152,9 +152,10 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       begin
         xgvbr  <= 15'b1111_1110_0000_000;
       end
-    else if (write_xgvbr)
+    else if (|write_xgvbr && !xge)
       begin
-        xgvbr[15: 1]  <= xge ? 15'b0 : write_bus[15:1];
+        xgvbr[15:8]  <= write_xgvbr[1] ? write_bus[15:8] : xgvbr[15:8];
+        xgvbr[ 7:1]  <= write_xgvbr[0] ? write_bus[ 7:1] : xgvbr[ 7:1];
       end
 
   // XGISP74 Register
@@ -176,8 +177,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       xgisp30  <= xge ? xgisp30 : write_bus;
 
   // XGIF 7-0 Registers
-  assign write_any_xgif = write_xgif_7 || write_xgif_6 || write_xgif_5 || write_xgif_4 ||
-                          write_xgif_3 || write_xgif_2 || write_xgif_1 || write_xgif_0;
+  assign write_any_xgif = write_xgif_7 | write_xgif_6 | write_xgif_5 | write_xgif_4 |
+                          write_xgif_3 | write_xgif_2 | write_xgif_1 | write_xgif_0;
 
   // Registers to clear the interrupt flags. Decode a specific interrupt to
   //  clear by ANDing the clear_xgif_x signal with the clear_xgif_data.
@@ -208,15 +209,16 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       end
     else
       begin
-        clear_xgif_7    <= write_xgif_7 && (MAX_CHANNEL > 111);
-        clear_xgif_6    <= write_xgif_6 && (MAX_CHANNEL > 95);
-        clear_xgif_5    <= write_xgif_5 && (MAX_CHANNEL > 79);
-        clear_xgif_4    <= write_xgif_4 && (MAX_CHANNEL > 63);
-        clear_xgif_3    <= write_xgif_3 && (MAX_CHANNEL > 47);
-        clear_xgif_2    <= write_xgif_2 && (MAX_CHANNEL > 31);
-        clear_xgif_1    <= write_xgif_1 && (MAX_CHANNEL > 15);
-        clear_xgif_0    <= write_xgif_0;
-        clear_xgif_data <= write_any_xgif ? write_bus : clear_xgif_data;
+        clear_xgif_7    <= |write_xgif_7 && (MAX_CHANNEL > 111);
+        clear_xgif_6    <= |write_xgif_6 && (MAX_CHANNEL > 95);
+        clear_xgif_5    <= |write_xgif_5 && (MAX_CHANNEL > 79);
+        clear_xgif_4    <= |write_xgif_4 && (MAX_CHANNEL > 63);
+        clear_xgif_3    <= |write_xgif_3 && (MAX_CHANNEL > 47);
+        clear_xgif_2    <= |write_xgif_2 && (MAX_CHANNEL > 31);
+        clear_xgif_1    <= |write_xgif_1 && (MAX_CHANNEL > 15);
+        clear_xgif_0    <= |write_xgif_0;
+        clear_xgif_data[15:8] <= write_any_xgif[1] ? write_bus[15:8] : 8'b0;
+        clear_xgif_data[ 7:0] <= write_any_xgif[0] ? write_bus[ 7:0] : 8'b0;
       end
 
 

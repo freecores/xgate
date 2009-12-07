@@ -47,39 +47,39 @@ module tst_bench_top();
   parameter STOP_ON_ERROR = 1'b0;
   parameter MAX_VECTOR = 2200;
 
-  parameter L_BYTE = 2'bx1;
-  parameter H_BYTE = 2'b1x;
+  parameter L_BYTE = 2'b01;
+  parameter H_BYTE = 2'b10;
   parameter WORD   = 2'b11;
 
 
   // Name Address Locations
   parameter XGATE_BASE     = 32'b0;
-  parameter XGATE_XGMCTL   = XGATE_BASE + 5'h00;
-  parameter XGATE_XGCHID   = XGATE_BASE + 5'h01;
-  parameter XGATE_XGISPHI  = XGATE_BASE + 5'h02;
-  parameter XGATE_XGISPLO  = XGATE_BASE + 5'h03;
-  parameter XGATE_XGVBR    = XGATE_BASE + 5'h04;
-  parameter XGATE_XGIF_7   = XGATE_BASE + 5'h05;
-  parameter XGATE_XGIF_6   = XGATE_BASE + 5'h06;
-  parameter XGATE_XGIF_5   = XGATE_BASE + 5'h07;
-  parameter XGATE_XGIF_4   = XGATE_BASE + 5'h08;
-  parameter XGATE_XGIF_3   = XGATE_BASE + 5'h09;
-  parameter XGATE_XGIF_2   = XGATE_BASE + 5'h0a;
-  parameter XGATE_XGIF_1   = XGATE_BASE + 5'h0b;
-  parameter XGATE_XGIF_0   = XGATE_BASE + 5'h0c;
-  parameter XGATE_XGSWT    = XGATE_BASE + 5'h0d;
-  parameter XGATE_XGSEM    = XGATE_BASE + 5'h0e;
-  parameter XGATE_RES1     = XGATE_BASE + 5'h0f;
-  parameter XGATE_XGCCR    = XGATE_BASE + 5'h10;
-  parameter XGATE_XGPC     = XGATE_BASE + 5'h11;
-  parameter XGATE_RES2     = XGATE_BASE + 5'h12;
-  parameter XGATE_XGR1     = XGATE_BASE + 5'h13;
-  parameter XGATE_XGR2     = XGATE_BASE + 5'h14;
-  parameter XGATE_XGR3     = XGATE_BASE + 5'h15;
-  parameter XGATE_XGR4     = XGATE_BASE + 5'h16;
-  parameter XGATE_XGR5     = XGATE_BASE + 5'h17;
-  parameter XGATE_XGR6     = XGATE_BASE + 5'h18;
-  parameter XGATE_XGR7     = XGATE_BASE + 5'h19;
+  parameter XGATE_XGMCTL   = XGATE_BASE + 6'h00;
+  parameter XGATE_XGCHID   = XGATE_BASE + 6'h02;
+  parameter XGATE_XGISPHI  = XGATE_BASE + 6'h04;
+  parameter XGATE_XGISPLO  = XGATE_BASE + 6'h06;
+  parameter XGATE_XGVBR    = XGATE_BASE + 6'h08;
+  parameter XGATE_XGIF_7   = XGATE_BASE + 6'h0a;
+  parameter XGATE_XGIF_6   = XGATE_BASE + 6'h0c;
+  parameter XGATE_XGIF_5   = XGATE_BASE + 6'h0e;
+  parameter XGATE_XGIF_4   = XGATE_BASE + 6'h10;
+  parameter XGATE_XGIF_3   = XGATE_BASE + 6'h12;
+  parameter XGATE_XGIF_2   = XGATE_BASE + 6'h14;
+  parameter XGATE_XGIF_1   = XGATE_BASE + 6'h16;
+  parameter XGATE_XGIF_0   = XGATE_BASE + 6'h18;
+  parameter XGATE_XGSWT    = XGATE_BASE + 6'h1a;
+  parameter XGATE_XGSEM    = XGATE_BASE + 6'h1c;
+  parameter XGATE_RES1     = XGATE_BASE + 6'h1e;
+  parameter XGATE_XGCCR    = XGATE_BASE + 6'h20;
+  parameter XGATE_XGPC     = XGATE_BASE + 6'h22;
+  parameter XGATE_RES2     = XGATE_BASE + 6'h24;
+  parameter XGATE_XGR1     = XGATE_BASE + 6'h26;
+  parameter XGATE_XGR2     = XGATE_BASE + 6'h28;
+  parameter XGATE_XGR3     = XGATE_BASE + 6'h2a;
+  parameter XGATE_XGR4     = XGATE_BASE + 6'h2c;
+  parameter XGATE_XGR5     = XGATE_BASE + 6'h2e;
+  parameter XGATE_XGR6     = XGATE_BASE + 6'h30;
+  parameter XGATE_XGR7     = XGATE_BASE + 6'h32;
 
   // Define bits in XGATE Control Register
   parameter XGMCTL_XGEM     = 16'h8000;
@@ -289,7 +289,7 @@ module tst_bench_top();
 
   always @channel_err_wrt
     begin
-      $display("\n ------ !!!!! Software Error #%d -- at vector=%d\n  -------", channel_err_reg, vector);
+      $display("\n ------ !!!!! Software Checkpoint Error #%d -- at vector=%d\n  -------", channel_err_reg, vector);
       error_count = error_count + 1;
       if (STOP_ON_ERROR == 1'b1)
         wrap_up;
@@ -410,7 +410,7 @@ module tst_bench_top();
           .wbs_clk_i( mstr_test_clk ),
           .wbs_rst_i( 1'b0 ),         // sync_reset
           .arst_i( rstn ),            // async resetn
-          .wbs_adr_i( sys_adr[4:0] ),
+          .wbs_adr_i( sys_adr[5:1] ),
           .wbs_dat_i( sys_dout ),
           .wbs_dat_o( xgate_s_dout ),
           .wbs_we_i( sys_we ),
@@ -473,11 +473,12 @@ initial
 
     test_chid_debug;
 
+    reg_test_16;
+
     // host_ram;
     // End testing
     wrap_up;
 
-    reg_test_16;
 
     repeat(10) @(posedge mstr_test_clk);
 
@@ -507,7 +508,11 @@ task test_chid_debug;
     repeat(7) @(posedge mstr_test_clk);
     host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);      // Check for Correct CHID
 
-    host.wb_write(0, XGATE_XGCHID, 16'h000f, WORD);      // Change CHID
+    host.wb_write(0, XGATE_XGCHID, 16'h000f, H_BYTE);    // Check byte select lines
+    repeat(4) @(posedge mstr_test_clk);
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);      // Verify CHID is unchanged
+    
+    host.wb_write(0, XGATE_XGCHID, 16'h000f, L_BYTE);    // Change CHID
     host.wb_cmp(0, XGATE_XGCHID,   16'h000f, WORD);      // Check for Correct CHID
 
     host.wb_write(0, XGATE_XGCHID, 16'h0000, WORD);      // Change CHID to 00, RISC should go to IDLE state
@@ -549,6 +554,23 @@ task test_chid_debug;
     repeat(50) @(posedge mstr_test_clk);
 
     p_ram.dump_ram(0);
+
+    read_ram_cmp(16'h0000,16'h7b55);
+    read_ram_cmp(16'h0004,16'h7faa);
+    read_ram_cmp(16'h0006,16'h6f55);
+    read_ram_cmp(16'h0008,16'h00c3);
+    read_ram_cmp(16'h000a,16'h5f66);
+    read_ram_cmp(16'h000c,16'h0003);
+    read_ram_cmp(16'h0022,16'hccxx);
+    read_ram_cmp(16'h0026,16'hxx99);
+    read_ram_cmp(16'h0032,16'h1fcc);
+    read_ram_cmp(16'h0038,16'h2f99);
+    read_ram_cmp(16'h0042,16'h33xx);
+    read_ram_cmp(16'h0046,16'hxx55);
+    read_ram_cmp(16'h0052,16'hxx66);
+    read_ram_cmp(16'h0058,16'h99xx);
+    read_ram_cmp(16'h0062,16'h1faa);
+    read_ram_cmp(16'h0068,16'h2fcc);
 
   end
 endtask
@@ -755,7 +777,19 @@ task test_inst_set;
     repeat(20) @(posedge mstr_test_clk);
 
     p_ram.dump_ram(0);
-
+    
+    read_ram_cmp(16'h0000,16'haa55);
+    read_ram_cmp(16'h0004,16'h7faa);
+    read_ram_cmp(16'h0006,16'h6f55);
+    read_ram_cmp(16'h000a,16'h5f66);
+    read_ram_cmp(16'h0032,16'h1fcc);
+    read_ram_cmp(16'h0038,16'h2f99);
+    read_ram_cmp(16'h0062,16'h1faa);
+    read_ram_cmp(16'h0068,16'h2fcc);
+    read_ram_cmp(16'h0022,16'hccxx);
+    read_ram_cmp(16'h0026,16'hxx99);
+    read_ram_cmp(16'h0052,16'hxx66);
+    read_ram_cmp(16'h0058,16'h99xx);
   end
 endtask
 
@@ -765,11 +799,14 @@ task reg_test_16;
   begin
       test_num = test_num + 1;
       $display("TEST #%d Starts at vector=%d, reg_test_16", test_num, vector);
+
+      system_reset;
+      
       host.wb_cmp(0, XGATE_XGMCTL,   16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGCHID,   16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGISPHI,  16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGISPLO,  16'h0000, WORD);   // verify reset
-      host.wb_cmp(0, XGATE_XGVBR,    16'h0000, WORD);   // verify reset
+      host.wb_cmp(0, XGATE_XGVBR,    16'hfe00, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGIF_7,   16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGIF_6,   16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGIF_5,   16'h0000, WORD);   // verify reset
@@ -777,7 +814,7 @@ task reg_test_16;
       host.wb_cmp(0, XGATE_XGIF_3,   16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGIF_2,   16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGIF_1,   16'h0000, WORD);   // verify reset
-      host.wb_cmp(0, XGATE_XGIF_0,   16'h0000, WORD);   // verify reset
+      host.wb_cmp(0, XGATE_XGIF_0,   16'h0001, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGSWT,    16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGSEM,    16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGCCR,    16'h0000, WORD);   // verify reset
@@ -790,28 +827,168 @@ task reg_test_16;
       host.wb_cmp(0, XGATE_XGR6,     16'h0000, WORD);   // verify reset
       host.wb_cmp(0, XGATE_XGR7,     16'h0000, WORD);   // verify reset
 
-      host.wb_write(1, XGATE_XGR1, 16'h5555, WORD);
-      host.wb_cmp(  0, XGATE_XGR1, 16'h5555, WORD);
-      host.wb_write(1, XGATE_XGR2, 16'haaaa, WORD);
-      host.wb_cmp(  0, XGATE_XGR2, 16'haaaa, WORD);
-      host.wb_write(1, XGATE_XGR3, 16'h9999, WORD);
-      host.wb_cmp(  0, XGATE_XGR3, 16'h9999, WORD);
-      host.wb_write(1, XGATE_XGR4, 16'hcccc, WORD);
-      host.wb_cmp(  0, XGATE_XGR4, 16'hcccc, WORD);
-      host.wb_write(1, XGATE_XGR5, 16'h3333, WORD);
-      host.wb_cmp(  0, XGATE_XGR5, 16'h3333, WORD);
-      host.wb_write(1, XGATE_XGR6, 16'h6666, WORD);
-      host.wb_cmp(  0, XGATE_XGR6, 16'h6666, WORD);
-      host.wb_write(1, XGATE_XGR7, 16'ha5a5, WORD);
-      host.wb_cmp(  0, XGATE_XGR7, 16'ha5a5, WORD);
+/*
+  parameter XGMCTL_XGDBGM   = 15'h2000;
+  parameter XGMCTL_XGSSM    = 15'h1000;
+  parameter XGMCTL_XGBRKIEM = 15'h0400;
+  parameter XGMCTL_XGSWEIFM = 15'h0200;
+  parameter XGMCTL_XGIEM    = 15'h0100;
 
-      host.wb_write(1, XGATE_XGPC, 16'h5a5a, WORD);
-      host.wb_cmp(  0, XGATE_XGPC, 16'h5a5a, WORD);
+  parameter XGMCTL_XGDBG    = 15'h0020;
+  parameter XGMCTL_XGSS     = 15'h0010;
+  parameter XGMCTL_XGBRKIE  = 15'h0004;
+  parameter XGMCTL_XGSWEIF  = 15'h0002;
+  parameter XGMCTL_XGIE     = 15'h0001;
+*/
+      // Test bits in the Xgate Control Register (XGMCTL)
+      data_xgmctl = XGMCTL_XGEM | XGMCTL_XGFRZM | XGMCTL_XGFACTM | XGMCTL_XGFRZ | XGMCTL_XGFACT | XGMCTL_XGE;
+      host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, WORD);   //
+      data_xgmctl = XGMCTL_XGFRZ | XGMCTL_XGFACT | XGMCTL_XGE;
+      host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
 
-      host.wb_write(1, XGATE_XGCCR, 16'hfffa, WORD);
-      host.wb_cmp(  0, XGATE_XGCCR, 16'h000a, WORD);
-      host.wb_write(1, XGATE_XGCCR, 16'hfff5, WORD);
-      host.wb_cmp(  0, XGATE_XGCCR, 16'h0005, WORD);
+      data_xgmctl = XGMCTL_XGEM;
+      host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, WORD);   //
+      data_xgmctl = XGMCTL_XGFRZ | XGMCTL_XGFACT;
+      host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
+
+      data_xgmctl = XGMCTL_XGFRZM | XGMCTL_XGFACTM;
+      host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, WORD);   //
+      data_xgmctl = 16'h0000;
+      host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
+
+      data_xgmctl = 16'hffff;
+      host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, H_BYTE);   //
+      data_xgmctl = 16'h0000;
+      host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
+
+      data_xgmctl = 16'hffff;
+      host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, L_BYTE);   //
+      data_xgmctl = 16'h0000;
+      host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
+
+      // Test the Xgate Vector Base Address Register (XGVBR)
+      host.wb_write(0, XGATE_XGVBR,  16'h5555, WORD);
+      host.wb_cmp(0, XGATE_XGVBR,    16'h5554, WORD);
+
+      host.wb_write(0, XGATE_XGVBR,  16'hAAAA, WORD);
+      host.wb_cmp(0, XGATE_XGVBR,    16'hAAAA, WORD);
+
+      host.wb_write(0, XGATE_XGVBR,  16'hFF55, L_BYTE);
+      host.wb_cmp(0, XGATE_XGVBR,    16'hAA54, WORD);
+      
+      host.wb_write(0, XGATE_XGVBR,  16'h55AA, H_BYTE);
+      host.wb_cmp(0, XGATE_XGVBR,    16'h5554, WORD);
+      
+      data_xgmctl = XGMCTL_XGEM | XGMCTL_XGE;
+      host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, WORD);   //
+      data_xgmctl = XGMCTL_XGE;
+      host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
+      host.wb_write(0, XGATE_XGVBR,  16'hFFFF, WORD);
+      host.wb_cmp(0, XGATE_XGVBR,    16'h5554, WORD);
+
+      data_xgmctl = XGMCTL_XGEM;
+      host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, WORD);   //
+
+      // Test the Xgate Software Trigger Register (XGSWT)
+      host.wb_write(0, XGATE_XGSWT,  16'hFFFF, WORD);
+      host.wb_cmp(0, XGATE_XGSWT,    16'h00FF, WORD);
+      host.wb_write(0, XGATE_XGSWT,  16'hFF00, WORD);
+      host.wb_cmp(0, XGATE_XGSWT,    16'h0000, WORD);
+
+      host.wb_write(0, XGATE_XGSWT,  16'hFF55, L_BYTE);
+      host.wb_cmp(0, XGATE_XGSWT,    16'h0000, WORD);
+      host.wb_write(0, XGATE_XGSWT,  16'hFF55, H_BYTE);
+      host.wb_cmp(0, XGATE_XGSWT,    16'h0000, WORD);
+
+      // Test the Xgate Semaphore Register (XGSEM)
+      host.wb_write(0, XGATE_XGSEM,  16'hFFFF, WORD);
+      host.wb_cmp(0, XGATE_XGSEM,    16'h00FF, WORD);
+      host.wb_write(0, XGATE_XGSEM,  16'hFF00, WORD);
+      host.wb_cmp(0, XGATE_XGSEM,    16'h0000, WORD);
+
+      host.wb_write(0, XGATE_XGSEM,  16'hFFFF, L_BYTE);
+      host.wb_cmp(0, XGATE_XGSEM,    16'h0000, WORD);
+      host.wb_write(0, XGATE_XGSEM,  16'hFFFF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGSEM,    16'h0000, WORD);
+
+      // Test the Xgate Condition Code Register (XGCCR)
+      host.wb_write(0, XGATE_XGCCR,  16'hFFFF, L_BYTE);
+      host.wb_cmp(0, XGATE_XGCCR,    16'h000F, WORD);
+      host.wb_write(0, XGATE_XGCCR,  16'hFFF0, WORD);
+      host.wb_cmp(0, XGATE_XGCCR,    16'h0000, WORD);
+
+      // Test the Xgate Program Counter Register (XGPC)
+      host.wb_write(0, XGATE_XGPC,  16'hFF55, L_BYTE);
+      host.wb_cmp(0, XGATE_XGPC,    16'h0055, WORD);
+      host.wb_write(0, XGATE_XGPC,  16'hAAFF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGPC,    16'hAA55, WORD);
+      host.wb_write(0, XGATE_XGPC,  16'h9966, WORD);
+      host.wb_cmp(0, XGATE_XGPC,    16'h9966, WORD);
+
+      // Test the Xgate Register #1 (XGR1)
+      host.wb_write(0, XGATE_XGR1,  16'hFF33, L_BYTE);
+      host.wb_cmp(0, XGATE_XGR1,    16'h0033, WORD);
+      host.wb_write(0, XGATE_XGR1,  16'hccFF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGR1,    16'hcc33, WORD);
+      host.wb_write(0, XGATE_XGR1,  16'hf11f, WORD);
+      host.wb_cmp(0, XGATE_XGR1,    16'hf11f, WORD);
+
+      // Test the Xgate Register #2 (XGR2)
+      host.wb_write(0, XGATE_XGR2,  16'hFF11, L_BYTE);
+      host.wb_cmp(0, XGATE_XGR2,    16'h0011, WORD);
+      host.wb_write(0, XGATE_XGR2,  16'h22FF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGR2,    16'h2211, WORD);
+      host.wb_write(0, XGATE_XGR2,  16'hddee, WORD);
+      host.wb_cmp(0, XGATE_XGR2,    16'hddee, WORD);
+
+      // Test the Xgate Register #3 (XGR3)
+      host.wb_write(0, XGATE_XGR3,  16'hFF43, L_BYTE);
+      host.wb_cmp(0, XGATE_XGR3,    16'h0043, WORD);
+      host.wb_write(0, XGATE_XGR3,  16'h54FF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGR3,    16'h5443, WORD);
+      host.wb_write(0, XGATE_XGR3,  16'habbc, WORD);
+      host.wb_cmp(0, XGATE_XGR3,    16'habbc, WORD);
+
+      // Test the Xgate Register #4 (XGR4)
+      host.wb_write(0, XGATE_XGR4,  16'hFF54, L_BYTE);
+      host.wb_cmp(0, XGATE_XGR4,    16'h0054, WORD);
+      host.wb_write(0, XGATE_XGR4,  16'h65FF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGR4,    16'h6554, WORD);
+      host.wb_write(0, XGATE_XGR4,  16'h9aab, WORD);
+      host.wb_cmp(0, XGATE_XGR4,    16'h9aab, WORD);
+
+      // Test the Xgate Register #5 (XGR5)
+      host.wb_write(0, XGATE_XGR5,  16'hFF65, L_BYTE);
+      host.wb_cmp(0, XGATE_XGR5,    16'h0065, WORD);
+      host.wb_write(0, XGATE_XGR5,  16'h76FF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGR5,    16'h7665, WORD);
+      host.wb_write(0, XGATE_XGR5,  16'h899a, WORD);
+      host.wb_cmp(0, XGATE_XGR5,    16'h899a, WORD);
+
+      // Test the Xgate Register #6 (XGR6)
+      host.wb_write(0, XGATE_XGR6,  16'hFF76, L_BYTE);
+      host.wb_cmp(0, XGATE_XGR6,    16'h0076, WORD);
+      host.wb_write(0, XGATE_XGR6,  16'h87FF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGR6,    16'h8776, WORD);
+      host.wb_write(0, XGATE_XGR6,  16'h7889, WORD);
+      host.wb_cmp(0, XGATE_XGR6,    16'h7889, WORD);
+
+      // Test the Xgate Register #7 (XGR7)
+      host.wb_write(0, XGATE_XGR7,  16'hFF87, L_BYTE);
+      host.wb_cmp(0, XGATE_XGR7,    16'h0087, WORD);
+      host.wb_write(0, XGATE_XGR7,  16'h98FF, H_BYTE);
+      host.wb_cmp(0, XGATE_XGR7,    16'h9887, WORD);
+      host.wb_write(0, XGATE_XGR7,  16'h6778, WORD);
+      host.wb_cmp(0, XGATE_XGR7,    16'h6778, WORD);
+
+      host.wb_cmp(0, XGATE_XGPC,    16'h9966, WORD);
+      host.wb_cmp(0, XGATE_XGR1,    16'hf11f, WORD);
+      host.wb_cmp(0, XGATE_XGR2,    16'hddee, WORD);
+      host.wb_cmp(0, XGATE_XGR3,    16'habbc, WORD);
+      host.wb_cmp(0, XGATE_XGR4,    16'h9aab, WORD);
+      host.wb_cmp(0, XGATE_XGR5,    16'h899a, WORD);
+      host.wb_cmp(0, XGATE_XGR6,    16'h7889, WORD);
+      host.wb_cmp(0, XGATE_XGR7,    16'h6778, WORD);
 
   end
 endtask
@@ -939,6 +1116,24 @@ task activate_thread_sw;
 
       channel_req[chan_val] = 1'b1; //
       repeat(1) @(posedge mstr_test_clk);
+   end
+endtask
+
+////////////////////////////////////////////////////////////////////////////////
+task read_ram_cmp;
+  input [15:0] address;
+  input [15:0] value;
+  reg   [15:0] q;
+  begin
+
+      // BIGENDIAN
+      q = {p_ram.ram_8[address], p_ram.ram_8[address+1]};
+      // "X" compares don't work, "X" in value or q always match
+      if (value != q)
+	begin
+          error_count = error_count + 1;
+          $display("RAM Data compare error at address %h. Received %h, expected %h at time %t", address, q, value, $time);
+	end
    end
 endtask
 
@@ -1081,10 +1276,10 @@ module bus_arbitration  #(parameter dwidth = 32,
   wire alt1_master = !host_lock;
 
   // Address decoding for different XGATE module instances
-  assign slv1_stb = sys_stb && ~sys_adr[6] && ~sys_adr[5] && ~|sys_adr[31:16];
-  wire slv3_stb = sys_stb && ~sys_adr[6] &&  sys_adr[5] && ~|sys_adr[31:16];
-  wire slv4_stb = sys_stb &&  sys_adr[6] && ~sys_adr[5] && ~|sys_adr[31:16];
-  wire slv5_stb = sys_stb &&  sys_adr[6] &&  sys_adr[5] && ~|sys_adr[31:16];
+  assign slv1_stb = sys_stb && ~sys_adr[7] && ~sys_adr[6] && ~|sys_adr[31:8];
+  wire slv3_stb = sys_stb && ~sys_adr[7] &&  sys_adr[6] && ~|sys_adr[31:8];
+  wire slv4_stb = sys_stb &&  sys_adr[7] && ~sys_adr[6] && ~|sys_adr[31:8];
+  wire slv5_stb = sys_stb &&  sys_adr[7] &&  sys_adr[6] && ~|sys_adr[31:8];
   
   // Address decoding for Testbench access to RAM
   assign slv2_stb = alt1_master ? (alt1_stb && sys_adr[16] && ~|sys_adr[31:17]) :

@@ -3,6 +3,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Dec 02,2009
+RTL - 85% done -- Updated code so there is only one program counter adder.
+   Updated WISHBONE Slave bus for word addressability and byte selection.
+
+Updates to testbench -- 
+
+Updates to User Guide -- Minor cleanup.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Nov 09,2009
 RTL - 85% done - Minor changes to Mastermode bus.
 
@@ -23,7 +35,9 @@ RTL - 85% done
 All debug commands now working, including writes to XGCHID register.
 
 Updates to testbench, added timeout and total error count.
-Updates to User Guide.
+
+Updates to User Guide --.
+
 Created the sw directory and copied over the software stuff from the bench
 directory.
 

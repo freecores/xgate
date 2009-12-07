@@ -69,7 +69,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input             async_rst_b,
   input             mem_req_ack,    // Memory Bus available - data good
   input             xge,            // XGATE Module Enable
-  input             xgfrz,          // Stop XGATE in Freeze Mode
   input             debug_mode_i,   // Force RISC core into debug mode
   input             xgdbg_set,      // Enter XGATE Debug Mode
   input             xgdbg_clear,    // Leave XGATE Debug Mode
@@ -81,14 +80,14 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input             write_xgchid,   // Write Strobe for XGCHID register
   input             write_xgsem,    // Write Strobe for XGSEM register
   input             write_xgccr,    // Write Strobe for XGATE Condition Code Register
-  input             write_xgpc,     // Write Strobe for XGATE Program Counter
-  input             write_xgr7,     // Write Strobe for XGATE Data Register R7
-  input             write_xgr6,     // Write Strobe for XGATE Data Register R6
-  input             write_xgr5,     // Write Strobe for XGATE Data Register R5
-  input             write_xgr4,     // Write Strobe for XGATE Data Register R4
-  input             write_xgr3,     // Write Strobe for XGATE Data Register R3
-  input             write_xgr2,     // Write Strobe for XGATE Data Register R2
-  input             write_xgr1,     // Write Strobe for XGATE Data Register R1
+  input      [ 1:0] write_xgpc,     // Write Strobe for XGATE Program Counter
+  input      [ 1:0] write_xgr7,     // Write Strobe for XGATE Data Register R7
+  input      [ 1:0] write_xgr6,     // Write Strobe for XGATE Data Register R6
+  input      [ 1:0] write_xgr5,     // Write Strobe for XGATE Data Register R5
+  input      [ 1:0] write_xgr4,     // Write Strobe for XGATE Data Register R4
+  input      [ 1:0] write_xgr3,     // Write Strobe for XGATE Data Register R3
+  input      [ 1:0] write_xgr2,     // Write Strobe for XGATE Data Register R2
+  input      [ 1:0] write_xgr1,     // Write Strobe for XGATE Data Register R1
   input             xgsweif_c,      // Clear Software Flag
   input             clear_xgif_7,   // Strobe for decode to clear interrupt flag bank 7
   input             clear_xgif_6,   // Strobe for decode to clear interrupt flag bank 6
@@ -395,14 +394,17 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       program_counter  <= 16'h0000;
     else
-      program_counter  <= (write_xgpc && perif_wrt_ena) ? perif_data : (mem_req_ack ? next_pc : program_counter);
+      program_counter  <= (|write_xgpc && perif_wrt_ena) ?
+      {(write_xgpc[1] ? perif_data[15:8]: program_counter[15:8]),
+       (write_xgpc[0] ? perif_data[ 7:0]: program_counter[ 7:0])} :
+      (mem_req_ack ? next_pc : program_counter);
 
   //  Debug Change Program Counter Register
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
       cmd_change_pc  <= 1'b0;
     else
-      cmd_change_pc  <= write_xgpc && perif_wrt_ena;
+      cmd_change_pc  <= |write_xgpc && perif_wrt_ena;
 
   //  ALU Flag Bits
   always @(posedge risc_clk or negedge async_rst_b)
@@ -471,25 +473,39 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       end
     else
       begin
-        xgr1 <= (write_xgr1 && perif_wrt_ena) ? perif_data :
+        xgr1 <= (|write_xgr1 && perif_wrt_ena) ? 
+		{(write_xgr1[1] ? perif_data[15:8]: xgr1[15:8]),
+                 (write_xgr1[0] ? perif_data[ 7:0]: xgr1[ 7:0])} :
                 {((wrt_sel_xgr1 && ena_rd_high_byte) ? alu_result[15:8] : xgr1[15:8]),
                  ((wrt_sel_xgr1 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr1[ 7:0])};
-        xgr2 <= (write_xgr2 && perif_wrt_ena) ? perif_data :
+        xgr2 <= (|write_xgr2 && perif_wrt_ena) ? 
+		{(write_xgr2[1] ? perif_data[15:8]: xgr2[15:8]),
+                 (write_xgr2[0] ? perif_data[ 7:0]: xgr2[ 7:0])} :
                 {((wrt_sel_xgr2 && ena_rd_high_byte) ? alu_result[15:8] : xgr2[15:8]),
                  ((wrt_sel_xgr2 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr2[ 7:0])};
-        xgr3 <= (write_xgr3 && perif_wrt_ena) ? perif_data :
+        xgr3 <= (|write_xgr3 && perif_wrt_ena) ? 
+		{(write_xgr3[1] ? perif_data[15:8]: xgr3[15:8]),
+                 (write_xgr3[0] ? perif_data[ 7:0]: xgr3[ 7:0])} :
                 {((wrt_sel_xgr3 && ena_rd_high_byte) ? alu_result[15:8] : xgr3[15:8]),
                  ((wrt_sel_xgr3 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr3[ 7:0])};
-        xgr4 <= (write_xgr4 && perif_wrt_ena) ? perif_data :
+        xgr4 <= (|write_xgr4 && perif_wrt_ena) ? 
+		{(write_xgr4[1] ? perif_data[15:8]: xgr4[15:8]),
+                 (write_xgr4[0] ? perif_data[ 7:0]: xgr4[ 7:0])} :
                 {((wrt_sel_xgr4 && ena_rd_high_byte) ? alu_result[15:8] : xgr4[15:8]),
                  ((wrt_sel_xgr4 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr4[ 7:0])};
-        xgr5 <= (write_xgr5 && perif_wrt_ena) ? perif_data :
+        xgr5 <= (|write_xgr5 && perif_wrt_ena) ? 
+		{(write_xgr5[1] ? perif_data[15:8]: xgr5[15:8]),
+                 (write_xgr5[0] ? perif_data[ 7:0]: xgr5[ 7:0])} :
                 {((wrt_sel_xgr5 && ena_rd_high_byte) ? alu_result[15:8] : xgr5[15:8]),
                  ((wrt_sel_xgr5 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr5[ 7:0])};
-        xgr6 <= (write_xgr6 && perif_wrt_ena) ? perif_data :
+        xgr6 <= (|write_xgr6 && perif_wrt_ena) ? 
+		{(write_xgr6[1] ? perif_data[15:8]: xgr6[15:8]),
+                 (write_xgr6[0] ? perif_data[ 7:0]: xgr6[ 7:0])} :
                 {((wrt_sel_xgr6 && ena_rd_high_byte) ? alu_result[15:8] : xgr6[15:8]),
                  ((wrt_sel_xgr6 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr6[ 7:0])};
-        xgr7 <= (write_xgr7 && perif_wrt_ena) ? perif_data :
+        xgr7 <= (|write_xgr7 && perif_wrt_ena) ? 
+		{(write_xgr7[1] ? perif_data[15:8]: xgr7[15:8]),
+                 (write_xgr7[0] ? perif_data[ 7:0]: xgr7[ 7:0])} :
                 {((wrt_sel_xgr7 && ena_rd_high_byte) ? alu_result[15:8] : xgr7[15:8]),
                  ((wrt_sel_xgr7 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr7[ 7:0])};
       end

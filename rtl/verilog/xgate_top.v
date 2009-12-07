@@ -49,7 +49,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   input                  wbs_clk_i,     // master clock input
   input                  wbs_rst_i,     // synchronous active high reset
   input                  arst_i,        // asynchronous reset
-  input            [4:0] wbs_adr_i,     // lower address bits
+  input            [5:1] wbs_adr_i,     // lower address bits
   input     [DWIDTH-1:0] wbs_dat_i,     // databus input
   input                  wbs_we_i,      // write enable input
   input                  wbs_stb_i,     // stobe/core select signal
@@ -96,26 +96,26 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        write_xgchid;  // Write Strobe for XGCHID register
   wire        write_xgisp74; // Write Strobe for XGISP74 register
   wire        write_xgisp30; // Write Strobe for XGISP30 register
-  wire        write_xgvbr;   // Write Strobe for XGVBR_LO register
-  wire        write_xgif_7;  // Write Strobe for Interrupt Flag Register 7
-  wire        write_xgif_6;  // Write Strobe for Interrupt Flag Register 6
-  wire        write_xgif_5;  // Write Strobe for Interrupt Flag Register 5
-  wire        write_xgif_4;  // Write Strobe for Interrupt Flag Register 4
-  wire        write_xgif_3;  // Write Strobe for Interrupt Flag Register 3
-  wire        write_xgif_2;  // Write Strobe for Interrupt Flag Register 2
-  wire        write_xgif_1;  // Write Strobe for Interrupt Flag Register 1
-  wire        write_xgif_0;  // Write Strobe for Interrupt Flag Register 0
+  wire  [1:0] write_xgvbr;   // Write Strobe for XGVBR register
+  wire  [1:0] write_xgif_7;  // Write Strobe for Interrupt Flag Register 7
+  wire  [1:0] write_xgif_6;  // Write Strobe for Interrupt Flag Register 6
+  wire  [1:0] write_xgif_5;  // Write Strobe for Interrupt Flag Register 5
+  wire  [1:0] write_xgif_4;  // Write Strobe for Interrupt Flag Register 4
+  wire  [1:0] write_xgif_3;  // Write Strobe for Interrupt Flag Register 3
+  wire  [1:0] write_xgif_2;  // Write Strobe for Interrupt Flag Register 2
+  wire  [1:0] write_xgif_1;  // Write Strobe for Interrupt Flag Register 1
+  wire  [1:0] write_xgif_0;  // Write Strobe for Interrupt Flag Register 0
   wire        write_xgswt;   // Write Strobe for XGSWT register
   wire        write_xgsem;   // Write Strobe for XGSEM register
   wire        write_xgccr;   // Write Strobe for XGATE Condition Code Register
-  wire        write_xgpc;    // Write Strobe for XGATE Program Counter
-  wire        write_xgr7;    // Write Strobe for XGATE Data Register R7
-  wire        write_xgr6;    // Write Strobe for XGATE Data Register R6
-  wire        write_xgr5;    // Write Strobe for XGATE Data Register R5
-  wire        write_xgr4;    // Write Strobe for XGATE Data Register R4
-  wire        write_xgr3;    // Write Strobe for XGATE Data Register R3
-  wire        write_xgr2;    // Write Strobe for XGATE Data Register R2
-  wire        write_xgr1;    // Write Strobe for XGATE Data Register R1
+  wire  [1:0] write_xgpc;    // Write Strobe for XGATE Program Counter
+  wire  [1:0] write_xgr7;    // Write Strobe for XGATE Data Register R7
+  wire  [1:0] write_xgr6;    // Write Strobe for XGATE Data Register R6
+  wire  [1:0] write_xgr5;    // Write Strobe for XGATE Data Register R5
+  wire  [1:0] write_xgr4;    // Write Strobe for XGATE Data Register R4
+  wire  [1:0] write_xgr3;    // Write Strobe for XGATE Data Register R3
+  wire  [1:0] write_xgr2;    // Write Strobe for XGATE Data Register R2
+  wire  [1:0] write_xgr1;    // Write Strobe for XGATE Data Register R1
 
   wire        clear_xgif_7;    // Strobe for decode to clear interrupt flag bank 7
   wire        clear_xgif_6;    // Strobe for decode to clear interrupt flag bank 6
@@ -131,6 +131,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        xgfrz;         // Stop XGATE in Freeze Mode
   wire        xgdbg_set;     // Enter XGATE Debug Mode
   wire        xgdbg_clear;   // Leave XGATE Debug Mode
+  wire        xgfact;        // Fake Activity
   wire        xgss;          // XGATE Single Step
   wire        xgsweif_c;     // Clear XGATE Software Error Interrupt FLag
   wire        xgie;          // XGATE Interrupt Enable
@@ -225,7 +226,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 		     xgisp30,              // Reserved
 		     xgisp74,              // Reserved
 		     {8'b0, 1'b0, xgchid}, // XGCHID
-		     {8'b0, xge, xgfrz, debug_active, 1'b0, 1'b0, brk_irq_ena, xg_sw_irq, xgie}  // XGMCTL
+		     {8'b0, xge, xgfrz, debug_active, 1'b0, xgfact, brk_irq_ena, xg_sw_irq, xgie}  // XGMCTL
 		   }
 		  )
   );
@@ -239,6 +240,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgfrz( xgfrz ),
     .xgdbg_set( xgdbg_set ),
     .xgdbg_clear( xgdbg_clear ),
+    .xgfact( xgfact ),
     .xgss( xgss ),
     .xgsweif_c( xgsweif_c ),
     .xgie( xgie ),
@@ -310,7 +312,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .read_mem_data( read_mem_data ),
     .mem_req_ack( mem_req_ack ),
     .xge( xge ),
-    .xgfrz( xgfrz ),
     .xgdbg_set( xgdbg_set ),
     .xgdbg_clear( xgdbg_clear ),
     .debug_mode_i(debug_mode_i),
