@@ -3,9 +3,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
-Dec 02,2009
+Dec 08,2009
 RTL - 85% done -- Updated code so there is only one program counter adder.
    Updated WISHBONE Slave bus for word addressability and byte selection.
+   Deleted two stack pointer registers.
 
 Updates to testbench -- 
 
