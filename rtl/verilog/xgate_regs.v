@@ -51,8 +51,6 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   output reg                  xgie,         // XGATE Interrupt Enable
   output reg           [15:1] xgvbr,        // XGATE vector Base Address Register
   output reg           [ 7:0] xgswt,        // XGATE Software Trigger Register for host
-  output reg           [15:0] xgisp74,      // XGATE Interrupt level 7-4 stack pointer
-  output reg           [15:0] xgisp30,      // XGATE Interrupt level 3-0 stack pointer
   output reg                  clear_xgif_7,    // Strobe for decode to clear interrupt flag bank 7
   output reg                  clear_xgif_6,    // Strobe for decode to clear interrupt flag bank 6
   output reg                  clear_xgif_5,    // Strobe for decode to clear interrupt flag bank 5
@@ -70,8 +68,6 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                       sync_reset,    // Syncronous reset signal
   input                [15:0] write_bus,     // Write Data Bus
   input                       write_xgmctl,  // Write Strobe for XGMCTL register
-  input                       write_xgisp74, // Write Strobe for XGISP74 register
-  input                       write_xgisp30, // Write Strobe for XGISP30 register
   input                [ 1:0] write_xgvbr,   // Write Strobe for XGVBR register
   input                [ 1:0] write_xgif_7,  // Write Strobe for Interrupt Flag Register 7
   input                [ 1:0] write_xgif_6,  // Write Strobe for Interrupt Flag Register 6
@@ -157,24 +153,6 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
         xgvbr[15:8]  <= write_xgvbr[1] ? write_bus[15:8] : xgvbr[15:8];
         xgvbr[ 7:1]  <= write_xgvbr[0] ? write_bus[ 7:1] : xgvbr[ 7:1];
       end
-
-  // XGISP74 Register
-  always @(posedge bus_clk or negedge async_rst_b)
-    if (!async_rst_b)
-      xgisp74  <= 16'b0;
-    else if (sync_reset)
-      xgisp74  <= 16'b0;
-    else if (write_xgisp74)
-      xgisp74  <= xge ? xgisp74 : write_bus;
-
-  // XGISP30 Register
-  always @(posedge bus_clk or negedge async_rst_b)
-    if (!async_rst_b)
-      xgisp30  <= 16'b0;
-    else if (sync_reset)
-      xgisp30  <= 16'b0;
-    else if (write_xgisp30)
-      xgisp30  <= xge ? xgisp30 : write_bus;
 
   // XGIF 7-0 Registers
   assign write_any_xgif = write_xgif_7 | write_xgif_6 | write_xgif_5 | write_xgif_4 |
