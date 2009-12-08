@@ -89,13 +89,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire [15:0] xgr6;          // XGATE Register #6
   wire [15:0] xgr7;          // XGATE Register #7
 
-  wire [15:0] xgisp74;       // XGATE Interrupt level 7-4 stack pointer
-  wire [15:0] xgisp30;       // XGATE Interrupt level 3-0 stack pointer
-
   wire        write_xgmctl;  // Write Strobe for XGMCTL register
   wire        write_xgchid;  // Write Strobe for XGCHID register
-  wire        write_xgisp74; // Write Strobe for XGISP74 register
-  wire        write_xgisp30; // Write Strobe for XGISP30 register
   wire  [1:0] write_xgvbr;   // Write Strobe for XGVBR register
   wire  [1:0] write_xgif_7;  // Write Strobe for Interrupt Flag Register 7
   wire  [1:0] write_xgif_6;  // Write Strobe for Interrupt Flag Register 6
@@ -176,8 +171,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .sync_reset( sync_reset ),
     .write_xgmctl( write_xgmctl ),
     .write_xgchid( write_xgchid ),
-    .write_xgisp74( write_xgisp74 ),
-    .write_xgisp30( write_xgisp30 ),
     .write_xgvbr( write_xgvbr ),
     .write_xgif_7( write_xgif_7 ),
     .write_xgif_6( write_xgif_6 ),
@@ -223,8 +216,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 		     xgif_status[111: 96], // XGIF_6
 		     xgif_status[127:112], // XGIF_7
 		     {xgvbr[15:1], 1'b0},  // XGVBR
-		     xgisp30,              // Reserved
-		     xgisp74,              // Reserved
+		     16'b0,                // Reserved
+		     16'b0,                // Reserved
 		     {8'b0, 1'b0, xgchid}, // XGCHID
 		     {8'b0, xge, xgfrz, debug_active, 1'b0, xgfact, brk_irq_ena, xg_sw_irq, xgie}  // XGMCTL
 		   }
@@ -247,8 +240,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .brk_irq_ena( brk_irq_ena ),
     .xgvbr( xgvbr ),
     .xgswt( xgswt ),
-    .xgisp74( xgisp74 ), 
-    .xgisp30( xgisp30 ),
     .clear_xgif_7( clear_xgif_7 ),
     .clear_xgif_6( clear_xgif_6 ),
     .clear_xgif_5( clear_xgif_5 ),
@@ -265,8 +256,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .bus_clk( wbs_clk_i ),
     .write_bus( wbs_dat_i ),
     .write_xgmctl( write_xgmctl ),
-    .write_xgisp74( write_xgisp74 ),
-    .write_xgisp30( write_xgisp30 ),
     .write_xgvbr( write_xgvbr ),
     .write_xgif_7( write_xgif_7 ),
     .write_xgif_6( write_xgif_6 ),
