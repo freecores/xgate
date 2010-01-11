@@ -3,6 +3,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Jan 11,2010
+RTL - 85% done -- Fix error in Zero Flag caculation for ADC and SBC instructions
+  Fix Error in loading R2 durning cpu_state == BOOT_3.
+  THere is a bug in DEBUG mode that is sensitive to number of preceding
+   instructions and wait states that needs to be resolved.
+
+Updates to testbench -- 
+
+Updates to User Guide -- First pass with instruction set details. Needs more
+  review on condition code settings.
+
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Dec 08,2009
 RTL - 85% done -- Updated code so there is only one program counter adder.
    Updated WISHBONE Slave bus for word addressability and byte selection.
