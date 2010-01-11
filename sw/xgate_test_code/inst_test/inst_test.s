@@ -1192,7 +1192,7 @@ _START7
 	TFR     CCR,R2     ; Negative=1, Zero=0, Overflow=1, Carry=0
 	SBC     R1,R4,R7   ; R4 - R7 => R1
 	BMI	_FAIL7     ; Negative Flag should be clear
-	BNE     _FAIL7     ; Zero Flag should be set
+	BEQ     _FAIL7     ; Zero Flag should be clear
 	BVS	_FAIL7     ; Overflow Flag should be clear
 	BCS	_FAIL7     ; Carry Flag should be clear
 
@@ -1311,6 +1311,9 @@ _START8
 	BEQ     _FAIL8     ; Zero Flag should be clear
 	BVS	_FAIL8     ; Overflow Flag should be clear
 	BCC	_FAIL8     ; Carry Flag should be set
+	CMPL	R7,#$FF    ; Result should be -1 or $FFFF
+	CPCH	R7,#$FF
+	BNE	_FAIL8
 
        ;Test SUBH instruction
 	LDL	R6,#$11	   ; R4=$0011
@@ -1445,10 +1448,10 @@ _END_8
 	RTS
 		
 _FAIL8
-        LDL	R2,#$04    ; Sent Message to Testbench Error Register
+        LDL	R2,#$00    ; Sent Message to Testbench Error Register
 	LDH     R2,#$80
 	LDL     R3,#$10
-	STB     R3,(R2,#0)
+	STB     R3,(R2,#4)
 	
         SIF
 	RTS
