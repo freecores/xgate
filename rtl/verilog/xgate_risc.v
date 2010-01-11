@@ -243,27 +243,19 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       endcase
     end
 
-  assign wrt_reg_sel = sel_rd_field ? op_code[10:8] : op_code[4:2];
+  assign wrt_reg_sel = (cpu_state == BOOT_3) ? 3'b001 :
+                       (sel_rd_field ? op_code[10:8] : op_code[4:2]);
 
   // Decode register write select for eather RD or RI/RS2
   always @*
     begin
-      wrt_sel_xgr1 = (cpu_state == BOOT_3);
-      wrt_sel_xgr2 = 1'b0;
-      wrt_sel_xgr3 = 1'b0;
-      wrt_sel_xgr4 = 1'b0;
-      wrt_sel_xgr5 = 1'b0;
-      wrt_sel_xgr6 = 1'b0;
-      wrt_sel_xgr7 = 1'b0;
-      case (wrt_reg_sel)   // synopsys parallel_case
-        3'b001 : wrt_sel_xgr1 = mem_req_ack;
-        3'b010 : wrt_sel_xgr2 = mem_req_ack;
-        3'b011 : wrt_sel_xgr3 = mem_req_ack;
-        3'b100 : wrt_sel_xgr4 = mem_req_ack;
-        3'b101 : wrt_sel_xgr5 = mem_req_ack;
-        3'b110 : wrt_sel_xgr6 = mem_req_ack;
-        3'b111 : wrt_sel_xgr7 = mem_req_ack;
-      endcase
+      wrt_sel_xgr1 = (wrt_reg_sel == 3'b001) && mem_req_ack;
+      wrt_sel_xgr2 = (wrt_reg_sel == 3'b010) && mem_req_ack;
+      wrt_sel_xgr3 = (wrt_reg_sel == 3'b011) && mem_req_ack;
+      wrt_sel_xgr4 = (wrt_reg_sel == 3'b100) && mem_req_ack;
+      wrt_sel_xgr5 = (wrt_reg_sel == 3'b101) && mem_req_ack;
+      wrt_sel_xgr6 = (wrt_reg_sel == 3'b110) && mem_req_ack;
+      wrt_sel_xgr7 = (wrt_reg_sel == 3'b111) && mem_req_ack;
     end
 
   // Decode register select for RS1 and RB
@@ -1242,7 +1234,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            ena_rd_high_byte = 1'b1;
 
            {next_carry, alu_result}    = rs1_data - rs2_data - {15'b0, carry_flag};
-           next_zero     = !(|alu_result);
+           next_zero     = !(|alu_result) && zero_flag;
            next_negative = alu_result[15];
            next_overflow = (rs1_data[15] && !rs2_data[15] && !alu_result[15]) || (!rs1_data[15] && rs2_data[15] && alu_result[15]);
          end
@@ -1272,7 +1264,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            ena_rd_high_byte = 1'b1;
 
            {next_carry, alu_result}    = rs1_data + rs2_data + {15'b0, carry_flag};
-           next_zero     = !(|alu_result);
+           next_zero     = !(|alu_result) && zero_flag;
            next_negative = alu_result[15];
            next_overflow = (rs1_data[15] && rs2_data[15] && !alu_result[15]) || (!rs1_data[15] && !rs2_data[15] && alu_result[15]);
          end
