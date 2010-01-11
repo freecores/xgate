@@ -45,7 +45,7 @@ module tst_bench_top();
 
   parameter MAX_CHANNEL = 127;    // Max XGATE Interrupt Channel Number
   parameter STOP_ON_ERROR = 1'b0;
-  parameter MAX_VECTOR = 2200;
+  parameter MAX_VECTOR = 2300;
 
   parameter L_BYTE = 2'b01;
   parameter H_BYTE = 2'b10;
@@ -239,7 +239,7 @@ module tst_bench_top();
         end
     end
 
-  // Add up errors tha come from WISHBONE read compares
+  // Add up errors that come from WISHBONE read compares
   always @host.cmp_error_detect
     begin
       error_count <= error_count + 1;
@@ -250,7 +250,7 @@ module tst_bench_top();
   always @(posedge mstr_test_clk)
     if (((vector % 5) == 0) && (xgate.risc.load_next_inst || xgate.risc.data_access))
 //    if ((vector % 5) == 0)
-      wbm_ack_i <= 1'b0;
+      wbm_ack_i <= 1'b1;
     else
       wbm_ack_i <= 1'b1;
 
@@ -790,6 +790,10 @@ task test_inst_set;
     read_ram_cmp(16'h0026,16'hxx99);
     read_ram_cmp(16'h0052,16'hxx66);
     read_ram_cmp(16'h0058,16'h99xx);
+    
+    data_xgmctl = 16'hff00;
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Disable XGATE
+
   end
 endtask
 
@@ -1109,7 +1113,7 @@ endtask
 task activate_thread_sw;
   input [ 6:0] chan_val;
   begin
-      $display("Activating Sofrware Thread - Channel #%d", chan_val);
+      $display("Activating Software Thread - Channel #%d", chan_val);
 
       data_xgmctl = XGMCTL_XGEM | XGMCTL_XGE;
       host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Enable XGATE
