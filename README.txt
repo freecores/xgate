@@ -3,8 +3,35 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Jan 27,2010
+RTL - 85% done -- Fixed error in wbs_ack_o signal when Xgate wait states were
+   enabled. If a slave bus transaction was started but not completed in the
+   second cycle a wbs_ack_o output was still generated. Added a wbs_err_o output
+   signal to flag this input condition but not sure if it is really needed.
+  The old testbench was "helping" the Xgate module by sending an almost
+   continuous wbm_ack_i signal which allowed the RISC state machine to advance
+   when it shouldn't. Changes were made to the WISHBONE master bus interface
+   and the RISC control logic.
+
+Updates to testbench -- Extensive changes to testbench. The bus arbitration
+   module has been completely rewritten. It now completely controls access to the
+   system bus and RAM. It internally generates a WISHBONE ack signal for the RAM.
+   The test control registers have been moved out of the top level and put into
+   a new WISHBONE slave module which also attaches to the system bus. The Xgate
+   modules master and slave buses are fully integrated with the bus arbitration
+   module and the system bus. The new testbench looks a lot more like a real
+   system environment.
+  To Do: Add back "random" wait state generation for RAM access.
+
+Updates to User Guide -- Minor corrections to instruction set details. Needs more
+  review on condition code settings.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Jan 11,2010
-RTL - 85% done -- Fix error in Zero Flag caculation for ADC and SBC instructions
+RTL - 85% done -- Fix error in Zero Flag calculation for ADC and SBC instructions
   Fix Error in loading R2 durning cpu_state == BOOT_3.
   THere is a bug in DEBUG mode that is sensitive to number of preceding
    instructions and wait states that needs to be resolved.
@@ -35,7 +62,7 @@ RTL - 85% done - Minor changes to Mastermode bus.
 
 Updates to testbench, Moved RAM.to submodule, Added bus arbitration module
    but this is not fully functional. Causes timing problems when master is
-   polling xgate registers durning debug mode tests. Will probably change RAM
+   polling Xgate registers durning debug mode tests. Will probably change RAM
    model to dual port in next revision.
    Updated master module to include WISHBONE select inputs.
 
