@@ -77,7 +77,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                [ 1:0] write_xgif_2,  // Write Strobe for Interrupt Flag Register 2
   input                [ 1:0] write_xgif_1,  // Write Strobe for Interrupt Flag Register 1
   input                [ 1:0] write_xgif_0,  // Write Strobe for Interrupt Flag Register 0
-  input                       write_xgswt    // Write Strobe for XGSWT register
+  input                       write_xgswt,   // Write Strobe for XGSWT register
+  input                       debug_ack      // Clear debug register
   );
 
 
@@ -134,7 +135,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       begin
         xgss        <= 1'b0;
         xgsweif_c   <= 1'b0;
-        xgdbg_set   <= 1'b0;
+        xgdbg_set   <= xgdbg_set && !debug_ack;
         xgdbg_clear <= 1'b0;
       end
 

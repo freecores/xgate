@@ -61,6 +61,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   output                     xg_sw_irq,     // Xgate Software interrupt
   output              [ 7:0] host_semap,    // Semaphore status for host
   output reg                 debug_active,  // Latch to control debug mode in the RISC state machine
+  output                     debug_ack,     // Clear debug register
+  output                     single_step,   // Pulse to trigger a single instruction execution in debug mode
 
 
   input      [15:0] read_mem_data,
@@ -68,9 +70,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   input             risc_clk,
   input             async_rst_b,
   input             mem_req_ack,    // Memory Bus available - data good
+  input             ss_mem_ack,     // WISHBONE Bus has granted single step memory access
   input             xge,            // XGATE Module Enable
   input             debug_mode_i,   // Force RISC core into debug mode
-  input             xgdbg_set,      // Enter XGATE Debug Mode
+  input             xgdbg_set,      // Enter XGATE Debug Mode, pulse
   input             xgdbg_clear,    // Leave XGATE Debug Mode
   input             xgss,           // XGATE Single Step
   input      [15:1] xgvbr,          // XGATE vector Base Address Register
@@ -188,6 +191,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         shift_left;
   reg  [ 4:0] shift_ammount;
   reg  [15:0] shift_filler;
+  reg  [15:0] bf_mux_mask;   // Mask for controlling mux's in Bit Field Insert Instructions
 
   wire        start_thread;  // Signle to pop RISC core out of IDLE State
 
@@ -195,9 +199,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   wire        perif_wrt_ena; // Enable for Salve writes to CPU registers
 
   reg         xgss_edge;     // Flop for edge detection
-  wire        single_step;   // Pulse to trigger a single instruction execution in debug mode
   reg         brk_set_dbg;   // Pulse to set debug_active from instruction decoder
   reg         cmd_change_pc; // Debug write to PC register
+  reg         debug_edge;    // Reg for edge detection
 
   reg  [ 1:0] chid_sm_ns;    // Pseudo Register for State Machine next state logic,
   reg  [ 1:0] chid_sm;       //
@@ -214,7 +218,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   assign xgate_address = data_access ? data_address : program_counter;
   
-  assign mem_access = data_access || load_next_inst;
+  //assign mem_access = data_access || load_next_inst || (start_thread);
+  assign mem_access = data_access || load_next_inst || (cpu_state == CONT) ||
+                     (cpu_state == BREAK_2)  || (start_thread);
 
   // Generate an address for an op code fetch from an odd address or a word Load/Store from/to an odd address.
   assign addr_error = xgate_address[0] && (load_next_inst || (data_access && data_word_op));
@@ -284,7 +290,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       default : rs2_data = 16'h0;  // XGR0 is always Zero
     endcase
 
-  reg [15:0] bf_mux_mask;  // Mask for controlling mux's in Bit Field Insert Instructions
   // Decode mux select mask for Bit Field Insert Instructions
   always @*
     begin
@@ -311,9 +316,17 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   //  Latch the debug state, set by eather xgdb or BRK instructions
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
+      begin
       debug_active  <= 1'b0;
+      debug_edge    <= 0;
+      end
     else
-      debug_active  <= !xgdbg_clear && (xgdbg_set || brk_set_dbg || op_code_error || debug_active);
+      begin
+      debug_active  <= !xgdbg_clear && ((xgdbg_set && mem_req_ack && (next_cpu_state == CONT)) || brk_set_dbg || op_code_error || debug_active);
+      debug_edge    <= debug_active;
+      end
+      
+  assign debug_ack = debug_active && !debug_edge; // Posedge of debug_active
 
   //  Convert xgss (Single Step Pulse) to a one risc_clk wide pulse
   always @(posedge risc_clk or negedge async_rst_b)
@@ -322,7 +335,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     else
       xgss_edge  <= xgss;
 
-  assign single_step = xgss && !xgss_edge;
+  assign single_step = (xgss && !xgss_edge) || (!debug_active && debug_edge);
 
 
   //  CPU State Register
@@ -330,7 +343,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       cpu_state  <= IDLE;
     else
-      cpu_state  <= mem_req_ack ? next_cpu_state : cpu_state;
+      cpu_state  <= (mem_req_ack || (chid_sm != CHID_IDLE)) ? next_cpu_state : cpu_state;
 
   //  CPU Instruction Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -396,7 +409,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       cmd_change_pc  <= 1'b0;
     else
-      cmd_change_pc  <= |write_xgpc && perif_wrt_ena;
+      cmd_change_pc  <= (|write_xgpc && perif_wrt_ena) || (cmd_change_pc && !mem_req_ack);
 
   //  ALU Flag Bits
   always @(posedge risc_clk or negedge async_rst_b)
@@ -564,7 +577,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
 	   if (!xge)
              next_cpu_state = IDLE;
-	   else if (single_step || !debug_active)
+	   else if (ss_mem_ack || !debug_active)
              next_cpu_state = BOOT_1;
 	   else
              next_cpu_state = CHG_CHID;	     
@@ -613,7 +626,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
 	   if (!xge)
              next_cpu_state = IDLE;
-	   else if (single_step || !debug_active)
+	   else if (ss_mem_ack || !debug_active)
              next_cpu_state = BREAK_2;
 	   else if (chid_goto_idle)
              next_cpu_state = CHG_CHID;
@@ -641,7 +654,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          begin
 	   if (!xge)
              next_cpu_state = IDLE;
-	   else if (single_step || !debug_active)
+	   else if (ss_mem_ack || !debug_active)
              next_cpu_state = CONT;
 	   else if (cmd_change_pc)
              next_cpu_state = LD_INST;

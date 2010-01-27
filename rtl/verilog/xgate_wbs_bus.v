@@ -45,6 +45,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   // Wishbone Signals
   output      [DWIDTH-1:0] wbs_dat_o,     // databus output
   output                   wbs_ack_o,     // bus cycle acknowledge output
+  output                   wbs_err_o,     // bus error, lost module select durning wait state
   input                    wbs_clk_i,     // master clock input
   input                    wbs_rst_i,     // synchronous active high reset
   input                    arst_i,        // asynchronous reset
@@ -110,8 +111,9 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   assign module_sel  = wbs_cyc_i && wbs_stb_i;
   assign wbs_wacc    = module_sel && wbs_we_i && (wbs_ack_o || SINGLE_CYCLE);
   assign wbs_racc    = module_sel && !wbs_we_i;
-  assign wbs_ack_o   = SINGLE_CYCLE ? module_sel : bus_wait_state;
+  assign wbs_ack_o   = SINGLE_CYCLE ? module_sel : (bus_wait_state && module_sel);
   assign wbs_dat_o   = SINGLE_CYCLE ? rd_data_mux : rd_data_reg;
+  assign wbs_err_o   = !SINGLE_CYCLE && !module_sel && bus_wait_state;
 
   // generate acknowledge output signal, By using register all accesses takes two cycles.
   //  Accesses in back to back clock cycles are not possable.

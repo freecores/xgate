@@ -46,6 +46,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   // Wishbone Slave Signals
   output    [DWIDTH-1:0] wbs_dat_o,     // databus output
   output                 wbs_ack_o,     // bus cycle acknowledge output
+  output                 wbs_err_o,     // bus error, lost module select durning wait state
   input                  wbs_clk_i,     // master clock input
   input                  wbs_rst_i,     // synchronous active high reset
   input                  arst_i,        // asynchronous reset
@@ -143,6 +144,9 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        mem_req_ack;     //
 
   wire        debug_active;    // RISC state machine in Debug mode 
+  wire        debug_ack;       // Clear debug register
+  wire        single_step;     // Pulse to trigger a single instruction execution in debug mode
+  wire        ss_mem_ack;      // WISHBONE Bus has granted single step memory access
   
   wire [ 7:0] host_semap;    // Semaphore status for host
 //  wire [15:0] write_mem_data;
@@ -157,6 +161,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     wishbone_s(
     .wbs_dat_o( wbs_dat_o ),
     .wbs_ack_o( wbs_ack_o ),
+    .wbs_err_o( wbs_err_o ),
     .wbs_clk_i( wbs_clk_i ),
     .wbs_rst_i( wbs_rst_i ),
     .arst_i( arst_i ),
@@ -265,7 +270,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .write_xgif_2( write_xgif_2 ),
     .write_xgif_1( write_xgif_1 ),
     .write_xgif_0( write_xgif_0 ),
-    .write_xgswt( write_xgswt )
+    .write_xgswt( write_xgswt ),
+    .debug_ack( debug_ack )
   );
 
   // ---------------------------------------------------------------------------
@@ -291,8 +297,10 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xgr7( xgr7 ),
     .xgif_status( xgif_status ),
     .debug_active( debug_active ),
+    .debug_ack( debug_ack ),
     .xg_sw_irq( xg_sw_irq ),
     .mem_access( mem_access ),
+    .single_step( single_step ),
   
     // inputs
     .risc_clk( risc_clk ),
@@ -300,6 +308,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .async_rst_b( async_rst_b ),
     .read_mem_data( read_mem_data ),
     .mem_req_ack( mem_req_ack ),
+    .ss_mem_ack( ss_mem_ack ),
     .xge( xge ),
     .xgdbg_set( xgdbg_set ),
     .xgdbg_clear( xgdbg_clear ),
@@ -357,8 +366,12 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .wbs_rst_i( wbs_rst_i ),
     .arst_i( arst_i ),
  // XGATE Control Signals
+    .risc_clk( risc_clk ),
+    .async_rst_b( async_rst_b ),
     .xge( xge ),
     .mem_access( mem_access ),
+    .single_step( single_step ),
+    .ss_mem_ack( ss_mem_ack ),
     .read_mem_data( read_mem_data ),
     .xgate_address( xgate_address ),
     .mem_req_ack( mem_req_ack ),

@@ -57,7 +57,11 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   // XGATE Control Signals
   output      [DWIDTH-1:0] read_mem_data,    // Data from system memory
   output                   mem_req_ack,      // Memory bus transaction complete
+  input                    risc_clk,         //
+  input                    async_rst_b,      //
   input                    xge,              // XGATE Enabled
+  input                    single_step,      // Pulse to trigger a single instruction execution in debug mode
+  output                   ss_mem_ack,       // WISHBONE Bus has granted single step memory access
   input             [15:0] xgate_address,    // Address to system memory
   input                    mem_access,       // 
   input                    write_mem_strb_l, // Strobe for writing low data byte
@@ -68,11 +72,22 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
 
   // Wires and Registers
   wire   module_sel;       // This module is selected for bus transaction
+  reg    ss_mem_req;       // Bus request for single step memory access
 
   //
   // Module body
   //
   
+  // Latch Single Step Request and ask for memory access
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      ss_mem_req <= 1'b0;
+    else
+      ss_mem_req <= (single_step || ss_mem_req) && !wbm_ack_i && xge;
+      
+  assign ss_mem_ack = ss_mem_req && wbm_ack_i;
+
+			
   assign wbm_dat_o = write_mem_data;
   assign read_mem_data = wbm_dat_i;
   assign wbm_adr_o = xgate_address;
@@ -83,8 +98,8 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   
   assign wbm_sel_o = {write_mem_strb_h, write_mem_strb_l};
   
-  assign wbm_cyc_o = xge && mem_access;
+  assign wbm_cyc_o = xge && (mem_access || ss_mem_req);
   
-  assign wbm_stb_o = xge && mem_access;
+  assign wbm_stb_o = xge && (mem_access || ss_mem_req);
 
 endmodule  // xgate_wbm_bus
