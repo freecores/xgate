@@ -45,7 +45,7 @@ module tst_bench_top();
 
   parameter MAX_CHANNEL = 127;    // Max XGATE Interrupt Channel Number
   parameter STOP_ON_ERROR = 1'b0;
-  parameter MAX_VECTOR = 2300;
+  parameter MAX_VECTOR = 3000;
 
   parameter L_BYTE = 2'b01;
   parameter H_BYTE = 2'b10;
@@ -53,7 +53,7 @@ module tst_bench_top();
 
 
   // Name Address Locations
-  parameter XGATE_BASE     = 32'b0;
+  parameter XGATE_BASE     = 24'h1000;
   parameter XGATE_XGMCTL   = XGATE_BASE + 6'h00;
   parameter XGATE_XGCHID   = XGATE_BASE + 6'h02;
   parameter XGATE_XGISPHI  = XGATE_BASE + 6'h04;
@@ -103,7 +103,7 @@ module tst_bench_top();
   parameter CHANNEL_ACK = CHECK_POINT + 2;
   parameter CHANNEL_ERR = CHECK_POINT + 4;
   
-  parameter SYS_RAM_BASE = 32'h0002_0000;
+  parameter SYS_RAM_BASE = 24'h0000_0000;
 
   //
   // wires && regs
@@ -114,12 +114,6 @@ module tst_bench_top();
   reg  [ 7:0] test_num;
   
   reg  [15:0] q, qq;
-  reg  [ 7:0] check_point_reg;
-  reg  [ 7:0] channel_ack_reg;
-  reg  [ 7:0] channel_err_reg;
-  event check_point_wrt;
-  event channel_ack_wrt;
-  event channel_err_wrt;
 
   reg         rstn;
   reg         sync_reset;
@@ -129,10 +123,8 @@ module tst_bench_top();
   reg         debug_mode;
   reg         scantestmode;
 
-  reg         wbm_ack_i;
-
-  wire [15:0] dat_i, dat1_i, dat2_i, dat3_i;
-  wire        ack, ack_2, ack_3, ack_4;
+  wire [15:0] dat_i;
+  wire        ack;
 
   reg  [MAX_CHANNEL:0] channel_req;  // XGATE Interrupt inputs
   wire [MAX_CHANNEL:0] xgif;         // XGATE Interrupt outputs
@@ -148,7 +140,6 @@ module tst_bench_top();
   reg         mem_wait_state_enable;
 
   wire [15:0] tb_ram_out;
-  wire [31:0] sys_addr;
 
   // Registers used to mirror internal registers
   reg  [15:0] data_xgmctl;
@@ -161,8 +152,9 @@ module tst_bench_top();
   wire        sys_stb;
   wire        sys_we;
   wire [ 1:0] sys_sel;
-  wire [31:0] sys_adr;
+  wire [23:0] sys_adr;
   wire [15:0] sys_dout;
+  wire [15:0] sys_din;
   
   wire        host_ack;
   wire [15:0] host_dout;
@@ -170,7 +162,7 @@ module tst_bench_top();
   wire        host_stb;
   wire        host_we;
   wire [ 1:0] host_sel;
-  wire [31:0] host_adr;
+  wire [23:0] host_adr;
   wire [15:0] host_din;
   
   wire        xgate_ack;
@@ -187,7 +179,7 @@ module tst_bench_top();
   wire [15:0] xgate_s_dout;
   
   wire        slv2_stb;
-  wire        ram_ack;
+  wire        ram_sel;
   wire [15:0] ram_dout;
 
   // initial values and testbench setup
@@ -201,11 +193,7 @@ module tst_bench_top();
       wait_mode  = 0;
       debug_mode = 0;
       scantestmode = 0;
-      check_point_reg = 0;
-      channel_ack_reg = 0;
-      channel_err_reg = 0;
       error_count = 0;
-      wbm_ack_i = 1;
       mem_wait_state_enable = 0;
       // channel_req = 0;
 
@@ -245,84 +233,18 @@ module tst_bench_top();
       error_count <= error_count + 1;
     end
 
-
-  // Throw in some wait states from the memory
-  always @(posedge mstr_test_clk)
-    if (((vector % 5) == 0) && (xgate.risc.load_next_inst || xgate.risc.data_access))
-//    if ((vector % 5) == 0)
-      wbm_ack_i <= 1'b1;
-    else
-      wbm_ack_i <= 1'b1;
-
-  
-  // Special Memory Mapped Testbench Registers
-  always @(posedge mstr_test_clk or negedge rstn)
+  always @(posedge error_pulse) //channel_ack_wrt
     begin
-      if (!rstn)
-        begin
-          check_point_reg <= 0;
-          channel_ack_reg <= 0;
-          channel_err_reg <= 0;
-        end
-      if (wbm_sel_o[0] && wbm_ack_i && (wbm_adr_o == CHECK_POINT))
-        begin
-          check_point_reg <= wbm_dat_o[7:0];
-          #1;
-          -> check_point_wrt;
-        end
-      if (wbm_sel_o[0] && wbm_ack_i && (wbm_adr_o == CHANNEL_ACK))
-        begin
-          channel_ack_reg <= wbm_dat_o[7:0];
-          #1;
-          -> channel_ack_wrt;
-        end
-      if (wbm_sel_o[0] && wbm_ack_i && (wbm_adr_o == CHANNEL_ERR))
-        begin
-          channel_err_reg <= wbm_dat_o[7:0];
-          #1;
-          -> channel_err_wrt;
-        end
-    end
-
-  always @check_point_wrt
-    $display("\nSoftware Checkpoint #%h -- at vector=%d\n", check_point_reg, vector);
-
-  always @channel_err_wrt
-    begin
-      $display("\n ------ !!!!! Software Checkpoint Error #%d -- at vector=%d\n  -------", channel_err_reg, vector);
+      #1;
       error_count = error_count + 1;
       if (STOP_ON_ERROR == 1'b1)
         wrap_up;
     end
 
   wire [ 6:0] current_active_channel = xgate.risc.xgchid;
-  always @channel_ack_wrt
+  always @(posedge ack_pulse) //channel_ack_wrt
     clear_channel(current_active_channel);
 
-  
-  // Address decoding for different XGATE module instances
-  wire stb0 = host_stb && ~host_adr[6] && ~host_adr[5] && ~|host_adr[31:16];
-  wire stb1 = host_stb && ~host_adr[6] &&  host_adr[5] && ~|host_adr[31:16];
-  wire stb2 = host_stb &&  host_adr[6] && ~host_adr[5] && ~|host_adr[31:16];
-  wire stb3 = host_stb &&  host_adr[6] &&  host_adr[5] && ~|host_adr[31:16];
-  
-  assign dat1_i = 16'h0000;
-  assign dat2_i = 16'h0000;
-  assign dat3_i = 16'h0000;
-  assign ack_2 = 1'b0;
-  assign ack_3 = 1'b0;
-  assign ack_4 = 1'b0;
-
-  // Create the Read Data Bus
-  assign dat_i = ({16{stb0}} & xgate_s_dout) |
-                 ({16{stb1}} & dat1_i) |
-                 ({16{stb2}} & dat2_i) |
-                 ({16{stb3}} & {8'b0, dat3_i[7:0]});
-
-  assign ack = xgate_s_ack || ack_2 || ack_3 || ack_4;
-
-  // Aribartration Logic for Testbench RAM access
-  assign sys_addr     = 1'b1 ? {16'b0, wbm_adr_o} : host_adr;
   
 
   // Testbench RAM for Xgate program storage and Load/Store instruction tests
@@ -331,16 +253,16 @@ module tst_bench_top();
     // Outputs
     .ram_out( ram_dout ),
     // inputs
-    .address( sys_addr[15:0] ),  // sys_addr  sys_adr
+    .address( sys_adr[15:0] ),
     .ram_in( sys_dout ),
     .we( sys_we ),
-    .ce( 1'b1 ),
+    .ce( ram_sel ),
     .stb( mstr_test_clk ),
-    .sel( sys_sel ) // wbm_sel_o sys_sel
+    .sel( sys_sel )
   );
 
   // hookup wishbone master model
-  wb_master_model #(.dwidth(16), .awidth(32))
+  wb_master_model #(.dwidth(16), .awidth(24))
     host(
     // Outputs
     .cyc( host_cyc ),
@@ -350,7 +272,7 @@ module tst_bench_top();
     .adr( host_adr ),
     .dout( host_dout ),
     // inputs
-    .din(host_din),
+    .din(sys_din),
     .clk(mstr_test_clk),
     .ack(host_ack),
     .rst(rstn),
@@ -359,7 +281,13 @@ module tst_bench_top();
   );
 
   bus_arbitration  #(.dwidth(16),
-                     .awidth(32))
+                     .awidth(24),
+		     .ram_base(0),
+		     .ram_size(17'h10000),
+		     .slv1_base(XGATE_BASE),
+		     .slv1_size(64),
+		     .slv2_base(CHECK_POINT),
+		     .slv2_size(8))
     arb(
     // System bus I/O
     .sys_cyc( sys_cyc ),
@@ -368,6 +296,7 @@ module tst_bench_top();
     .sys_sel( sys_sel ),
     .sys_adr( sys_adr ),
     .sys_dout( sys_dout ),
+    .sys_din( sys_din ),
     // Host bus I/O
     .host_ack( host_ack ),
     .host_dout( host_din ),
@@ -379,20 +308,22 @@ module tst_bench_top();
     .host_din( host_dout ),
     // Alternate Bus Master #1 Bus I/O
     .alt1_ack( xgate_ack ),
-    .alt1_dout( xgate_din ),
     .alt1_cyc( wbm_cyc_o ),
     .alt1_stb( wbm_stb_o ),
     .alt1_we( wbm_we_o ),
     .alt1_sel( wbm_sel_o ),
-    .alt1_adr( {16'h0001, wbm_adr_o} ),
+    .alt1_adr( {8'h00, wbm_adr_o} ),
     .alt1_din( wbm_dat_o ),
+    // RAM
+    .ram_sel( ram_sel ),
+    .ram_dout( ram_dout ),
     // Slave #1 Bus I/O
     .slv1_stb( xgate_s_stb ),
     .slv1_ack( xgate_s_ack ),
     .slv1_din( xgate_s_dout ),
     // Slave #2 Bus I/O
     .slv2_stb( slv2_stb ),
-    .slv2_ack( wbm_ack_i ),
+    .slv2_ack( test_reg_ack ),
     .slv2_din( ram_dout ),
     // Miscellaneous
     .host_clk( mstr_test_clk ),
@@ -401,9 +332,9 @@ module tst_bench_top();
     .err( 1'b0 ),  // No Connect
     .rty( 1'b0 )   // No Connect
   );
+  
   // hookup XGATE core - Parameters take all default values
-  //  Async Reset, 16 bit Bus, 8 bit Granularity
-  xgate_top  #(.SINGLE_CYCLE(1'b1),
+  xgate_top  #(.SINGLE_CYCLE(1'b0),
                .MAX_CHANNEL(MAX_CHANNEL))    // Max XGATE Interrupt Channel Number
           xgate(
           // Wishbone slave interface
@@ -418,6 +349,7 @@ module tst_bench_top();
           .wbs_cyc_i( sys_cyc ),
           .wbs_sel_i( sys_sel ),
           .wbs_ack_o( xgate_s_ack ),
+          .wbs_err_o( wbs_err_o ),
 
           // Wishbone master Signals
           .wbm_dat_o( wbm_dat_o ),
@@ -426,8 +358,8 @@ module tst_bench_top();
           .wbm_cyc_o( wbm_cyc_o ),
           .wbm_sel_o( wbm_sel_o ),
           .wbm_adr_o( wbm_adr_o ),
-          .wbm_dat_i( ram_dout ),
-          .wbm_ack_i( wbm_ack_i ),
+          .wbm_dat_i( sys_din ),
+          .wbm_ack_i( xgate_ack ),
 
           .xgif( xgif ),             // XGATE Interrupt Flag output
           .xg_sw_irq( xg_sw_irq ),   // XGATE Software Error Interrupt Flag output
@@ -437,13 +369,34 @@ module tst_bench_top();
           .scantestmode( scantestmode )
   );
 
+  tb_slave #(.DWIDTH(16),
+             .SINGLE_CYCLE(1'b1))
+	  tb_slave_regs(
+	  // wishbone interface
+	  .wb_clk_i( mstr_test_clk ),
+	  .wb_rst_i( 1'b0 ),
+	  .arst_i( rstn ),
+	  .wb_adr_i( sys_adr[3:1] ),
+	  .wb_dat_i( sys_dout ),
+	  .wb_dat_o(),
+	  .wb_we_i( sys_we ),
+	  .wb_stb_i( slv2_stb ),
+	  .wb_cyc_i( sys_cyc ),
+	  .wb_sel_i( sys_sel ),
+	  .wb_ack_o( test_reg_ack ),
+
+          .ack_pulse( ack_pulse ),
+	  .error_pulse( error_pulse ),
+	  .vector( vector )
+  );
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-// Test Program
+// Main Test Program
 initial
   begin
     $display("\nstatus at time: %t Testbench started", $time);
@@ -475,13 +428,9 @@ initial
 
     reg_test_16;
 
-    // host_ram;
+    //host_ram;
+
     // End testing
-    wrap_up;
-
-
-    repeat(10) @(posedge mstr_test_clk);
-
     wrap_up;
   end
 
@@ -602,7 +551,7 @@ task test_debug_bit;
     while (qq == q)  // Look for change in R3 register
       begin
         host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step
-        repeat(5) @(posedge mstr_test_clk);
+        repeat(7) @(posedge mstr_test_clk);
         host.wb_read(1, XGATE_XGR3, q, WORD);
       end
     if (q != (qq+1))
@@ -612,16 +561,16 @@ task test_debug_bit;
       end
 
 
-    host.wb_write(1, XGATE_XGPC, 16'h2094, WORD);        // Write to PC to force exit from infinate loop
-    repeat(5) @(posedge mstr_test_clk);
+    host.wb_write(1, XGATE_XGPC, 16'h2094, WORD);        // Write to PC to force exit from infinite loop
+    repeat(10) @(posedge mstr_test_clk);
 
     data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load ADDL instruction)
-    repeat(5) @(posedge mstr_test_clk);
+    repeat(10) @(posedge mstr_test_clk);
     host.wb_cmp(0, XGATE_XGR4,     16'h0002, WORD);      // See Program code.(R4 <= R4 + 1)
 
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load ADDL instruction)
-    repeat(5) @(posedge mstr_test_clk);
+    repeat(10) @(posedge mstr_test_clk);
     host.wb_cmp(0, XGATE_XGR4,     16'h0003, WORD);      // See Program code.(R4 <= R4 + 1)
 
     data_xgmctl = XGMCTL_XGDBGM;
@@ -1186,16 +1135,23 @@ endmodule  // tst_bench_top
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-module bus_arbitration  #(parameter dwidth = 32,
-                          parameter awidth = 32)
+module bus_arbitration  #(parameter dwidth = 16,
+                          parameter awidth = 24,
+			  parameter ram_base = 0,
+			  parameter ram_size = 16'hffff,
+			  parameter slv1_base = 0,
+			  parameter slv1_size = 1,
+			  parameter slv2_base = 0,
+			  parameter slv2_size = 1)
   (
   // System bus I/O
-  output                     sys_cyc,
-  output                     sys_stb,
-  output                     sys_we,
-  output     [dwidth/8 -1:0] sys_sel,
-  output     [awidth   -1:0] sys_adr,
-  output     [dwidth   -1:0] sys_dout,
+  output reg                 sys_cyc,
+  output reg                 sys_stb,
+  output reg                 sys_we,
+  output reg [dwidth/8 -1:0] sys_sel,
+  output reg [awidth   -1:0] sys_adr,
+  output reg [dwidth   -1:0] sys_dout,
+  output     [dwidth   -1:0] sys_din,
   
   // Host bus I/O
   output                     host_ack,
@@ -1217,6 +1173,10 @@ module bus_arbitration  #(parameter dwidth = 32,
   input      [awidth   -1:0] alt1_adr,
   input      [dwidth   -1:0] alt1_din,
   
+  // System RAM memory signals
+  output                     ram_sel,
+  input      [dwidth   -1:0] ram_dout,
+
   // Slave #1 Bus I/O
   output                     slv1_stb,
   input                      slv1_ack,
@@ -1235,82 +1195,309 @@ module bus_arbitration  #(parameter dwidth = 32,
   input                      rty   // No Connect
   );
   
+  // Debug states for change CHID
+  parameter [1:0] BUS_IDLE = 2'b00,
+                  HOST_OWNS = 2'b10,
+                  RISC_OWNS = 2'b11;
   //////////////////////////////////////////////////////////////////////////////
   //
   // Local Wires and Registers
   //
-  wire       host_lock;      // Host has the slave bus
-  reg        host_lock_ext;  // Host lock extend, Hold the bus till the transaction complets
+  wire       ram_ack;        //
+  wire       any_ack;        // 
+  reg        host_wait;      // Host bus in wait state, Hold the bus till the transaction complets
   reg  [3:0] host_cycle_cnt; // Used to count the cycle the host and break the lock if the risc needs access
   
   wire       risc_lock;      // RISC has the slave bus
-  reg        risc_lock_ext;  // RISC lock extend, Hold the bus till the transaction complets
+  reg        risc_wait;      // RISC bus in wait state, Hold the bus till the transaction complets
   reg  [3:0] risc_cycle_cnt; // Used to count the cycle the risc and break the lock if the host needs access
+  
+  reg  [1:0] owner_state;
+  reg  [1:0] owner_ns;
+  
+  wire       host_timeout;
+  wire       risc_timeout;
 
-  // Aribartration Logic for System Bus access
+  reg        wbm_ack_i;
+
+
+  //
   always @(posedge host_clk or negedge rst)
     if (!rst)
-      host_lock_ext <= 1'b0;
+      owner_state <= BUS_IDLE;
     else
-      host_lock_ext <= host_cyc && !host_ack;
+      owner_state <= owner_ns;
+  
+  //
+  always @*
+    case (owner_state)
+      BUS_IDLE :
+	begin
+	  if (host_cyc)
+	    owner_ns = HOST_OWNS;
+	  else if (alt1_cyc)
+	    owner_ns = RISC_OWNS;
+	end
+      HOST_OWNS :
+	begin
+	  if (!host_cyc && !alt1_cyc)
+	    owner_ns = BUS_IDLE;
+	  else if (alt1_cyc && (!host_cyc || host_timeout))
+	    owner_ns = RISC_OWNS;
+	end
+      RISC_OWNS :
+	begin
+	  if (!host_cyc && !alt1_cyc)
+	    owner_ns = BUS_IDLE;
+	  else if (host_cyc && (!alt1_cyc || risc_timeout))
+	    owner_ns = HOST_OWNS;
+	end
+      default : owner_ns = BUS_IDLE;
+    endcase
 
-  always @(posedge host_clk or negedge rst)
-    if (!rst)
-      risc_lock_ext <= 1'b0;
+/*
+// Throw in some wait states from the memory
+  always @(posedge mstr_test_clk)
+    if (((vector % 5) == 0) && (xgate.risc.load_next_inst || xgate.risc.data_access))
+//    if ((vector % 5) == 0)
+      wbm_ack_i <= 1'b1;
     else
-      risc_lock_ext <= alt1_cyc && !alt1_ack;
+      wbm_ack_i <= 1'b1;
+*/
 
-      // Start counting cycles the host has the bus if the risc is also requesting the bus
+  
+  assign host_timeout = (owner_state == HOST_OWNS) && (host_cycle_cnt > 5) && any_ack;
+  assign risc_timeout = (owner_state == RISC_OWNS) && (risc_cycle_cnt > 5) && any_ack;
+
+  // Start counting cycles that the host has the bus, if the risc is also requesting the bus
   always @(posedge host_clk or negedge rst)
     if (!rst)
       host_cycle_cnt <= 0;
-    else
-      host_cycle_cnt <= (host_lock && alt1_cyc) ? (host_cycle_cnt + 1'b1) : 0;
+    else if ((owner_state != HOST_OWNS) || !alt1_cyc)
+      host_cycle_cnt <= 0;
+    else if (&host_cycle_cnt && !host_timeout)  // Don't allow rollover
+      host_cycle_cnt <= host_cycle_cnt;
+    else if ((owner_state == HOST_OWNS) && alt1_cyc)
+      host_cycle_cnt <= host_cycle_cnt + 1'b1;
 
-  // Start counting cycles the risc has the bus if the host is also requesting the bus
+  // Start counting cycles that the risc has the bus, if the host is also requesting the bus
   always @(posedge host_clk or negedge rst)
     if (!rst)
       risc_cycle_cnt <= 0;
-    else
-      risc_cycle_cnt <= (risc_lock && host_cyc) ? (risc_cycle_cnt + 1'b1) : 0;
+    else if ((owner_state != RISC_OWNS) || !host_cyc)
+      risc_cycle_cnt <= 0;
+    else if (&risc_cycle_cnt && !risc_timeout)  // Don't allow rollover
+      risc_cycle_cnt <= risc_cycle_cnt;
+    else if ((owner_state == RISC_OWNS) && host_cyc)
+      risc_cycle_cnt <= risc_cycle_cnt + 1'b1;
 
-  assign host_lock = ((host_cyc && !risc_lock_ext) || host_lock_ext) && (host_cycle_cnt < 5);
-  assign risc_lock = !host_lock;
-  
-  wire alt1_master = !host_lock;
+  // Aribartration Logic for System Bus access  
+  assign any_ack  = slv1_ack || slv2_ack || ram_ack;
+  assign host_ack = (owner_state == HOST_OWNS) && any_ack && host_cyc;
+  assign alt1_ack = (owner_state == RISC_OWNS) && any_ack && alt1_cyc;
 
-  // Address decoding for different XGATE module instances
-  assign slv1_stb = sys_stb && ~sys_adr[7] && ~sys_adr[6] && ~|sys_adr[31:8];
-  wire slv3_stb = sys_stb && ~sys_adr[7] &&  sys_adr[6] && ~|sys_adr[31:8];
-  wire slv4_stb = sys_stb &&  sys_adr[7] && ~sys_adr[6] && ~|sys_adr[31:8];
-  wire slv5_stb = sys_stb &&  sys_adr[7] &&  sys_adr[6] && ~|sys_adr[31:8];
+
+  // Address decoding for different Slave module instances
+  assign slv1_stb = sys_stb && (sys_adr >= slv1_base) && (sys_adr < (slv1_base + slv1_size));
+  assign slv2_stb = sys_stb && (sys_adr >= slv2_base) && (sys_adr < (slv2_base + slv2_size));
   
   // Address decoding for Testbench access to RAM
-  assign slv2_stb = alt1_master ? (alt1_stb && sys_adr[16] && ~|sys_adr[31:17]) :
-                                  (host_stb && ~sys_adr[16] && sys_adr[17] && ~|sys_adr[31:18]);
+  assign ram_sel = sys_cyc && sys_stb && !(slv1_stb || slv2_stb) &&
+                   (sys_adr >= ram_base) &&
+		   (sys_adr < (ram_base + ram_size));
+		   
+  assign ram_ack = ram_sel;
 
 
-  // Create the Host Read Data Bus
-  assign host_dout = ({dwidth{slv1_stb}} & slv1_din) |
-                     ({dwidth{slv2_stb}} & slv2_din);
-
-  // Create the Alternate #1 Read Data Bus
-  assign alt1_dout = ({dwidth{slv1_stb}} & slv1_din) |
-                     ({dwidth{slv2_stb}} & slv2_din);
-
-  assign host_ack = host_lock && (slv1_ack || slv2_ack);
-  assign alt1_ack = risc_lock && (slv1_ack || slv2_ack);
-
+  // Create the System Read Data Bus from the Slave output data buses
+  assign sys_din = ({dwidth{slv1_stb}} & slv1_din) |
+                   ({dwidth{slv2_stb}} & slv2_din) |
+                   ({dwidth{ram_sel}}  & ram_dout);
 
   // Mux for System Bus access
-  assign sys_cyc   = alt1_cyc || host_cyc;
-  assign sys_stb   = alt1_master ? alt1_stb  : host_stb;
-  assign sys_we    = alt1_master ? alt1_we   : host_we;
-  assign sys_sel   = alt1_master ? alt1_sel  : host_sel;
-  assign sys_adr   = alt1_master ? alt1_adr  : host_adr;
-  assign sys_dout  = alt1_master ? alt1_din  : host_din;
+  always @*
+    case (owner_state)
+      BUS_IDLE :
+	begin
+          sys_cyc   = 0;
+          sys_stb   = 0;
+          sys_we    = 0;
+          sys_sel   = 0;
+          sys_adr   = 0;
+          sys_dout  = 0;
+	end
+      HOST_OWNS :
+	begin
+          sys_cyc   = host_cyc;
+          sys_stb   = host_stb;
+          sys_we    = host_we;
+          sys_sel   = host_sel;
+          sys_adr   = host_adr;
+          sys_dout  = host_din;
+	end
+      RISC_OWNS :
+	begin
+          sys_cyc   = alt1_cyc;
+          sys_stb   = alt1_stb;
+          sys_we    = alt1_we;
+          sys_sel   = alt1_sel;
+          sys_adr   = alt1_adr;
+          sys_dout  = alt1_din;
+	end
+      default :
+	begin
+          sys_cyc   = 0;
+          sys_stb   = 0;
+          sys_we    = 0;
+          sys_sel   = 0;
+          sys_adr   = 0;
+          sys_dout  = 0;
+	end
+    endcase
 
 endmodule   // bus_arbitration
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
+		  parameter DWIDTH = 16)          // Data bus width
+  (
+  // Wishbone Signals
+  output [DWIDTH-1:0] wb_dat_o,     // databus output
+  output              wb_ack_o,     // bus cycle acknowledge output
+  input               wb_clk_i,     // master clock input
+  input               wb_rst_i,     // synchronous active high reset
+  input               arst_i,       // asynchronous reset
+  input         [2:0] wb_adr_i,     // lower address bits
+  input  [DWIDTH-1:0] wb_dat_i,     // databus input
+  input               wb_we_i,      // write enable input
+  input               wb_stb_i,     // stobe/core select signal
+  input               wb_cyc_i,     // valid bus cycle input
+  input         [1:0] wb_sel_i,     // Select byte in word bus transaction
+  // PIT IO Signals
+  output reg          error_pulse,  // Error detected output pulse
+  output reg          ack_pulse,    // Thread ack output pulse
+  input        [19:0] vector
+  );
+  
+  wire                  async_rst_b;   // Asyncronous reset
+  wire                  sync_reset;    // Syncronous reset
+  
+  // Wishbone Bus interface
+  // registers
+  reg                bus_wait_state;  // Holdoff wb_ack_o for one clock to add wait state
+  reg  [DWIDTH-1:0]  rd_data_mux;     // Pseudo Register, WISHBONE Read Data Mux
+  reg  [DWIDTH-1:0]  rd_data_reg;     // Latch for WISHBONE Read Data
 
+  reg  [15:0] check_point_reg;
+  reg  [15:0] channel_ack_reg;
+  reg  [15:0] channel_err_reg;
+
+  event check_point_wrt;
+  event channel_ack_wrt;
+  event channel_err_wrt;
+
+  // Wires
+  wire   module_sel;      // This module is selected for bus transaction
+  wire   wb_wacc;         // WISHBONE Write Strobe
+  wire   wb_racc;         // WISHBONE Read Access (Clock gating signal)
+
+  //
+  // module body
+  //
+
+  // generate internal resets
+
+
+  // generate wishbone signals
+  assign module_sel = wb_cyc_i && wb_stb_i;
+  assign wb_wacc    = module_sel && wb_we_i && (wb_ack_o || SINGLE_CYCLE);
+  assign wb_racc    = module_sel && !wb_we_i;
+  assign wb_ack_o   = SINGLE_CYCLE ? module_sel : bus_wait_state;
+  assign wb_dat_o   = SINGLE_CYCLE ? rd_data_mux : rd_data_reg;
+
+  // generate acknowledge output signal, By using register all accesses takes two cycles.
+  //  Accesses in back to back clock cycles are not possable.
+  always @(posedge wb_clk_i or negedge arst_i)
+    if (!arst_i)
+      bus_wait_state <=  1'b0;
+    else if (wb_rst_i)
+      bus_wait_state <=  1'b0;
+    else
+      bus_wait_state <=  module_sel && !bus_wait_state;
+
+  // assign data read bus -- DAT_O
+  always @(posedge wb_clk_i)
+    if ( wb_racc )                     // Clock gate for power saving
+      rd_data_reg <= rd_data_mux;
+
+  // WISHBONE Read Data Mux
+  always @*
+    case (wb_adr_i) // synopsys parallel_case
+      3'b000: rd_data_mux = check_point_reg;
+      3'b001: rd_data_mux = channel_ack_reg;
+      3'b010: rd_data_mux = channel_err_reg;
+      3'b011: rd_data_mux = 16'b0;
+    endcase
+
+  // generate wishbone write register strobes
+  always @(posedge wb_clk_i or negedge arst_i)
+    begin
+      if (!arst_i)
+        begin
+          check_point_reg <= 0;
+          channel_ack_reg <= 0;
+          channel_err_reg <= 0;
+	  ack_pulse       <= 0;
+	  error_pulse     <= 0;
+        end
+      else if (wb_wacc)
+	case (wb_adr_i) // synopsys parallel_case
+	   3'b000 :
+	     begin
+               check_point_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : check_point_reg[ 7:0];
+               check_point_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : check_point_reg[15:8];
+               -> check_point_wrt;
+	     end
+	   3'b001 :
+	     begin
+               channel_ack_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : channel_ack_reg[ 7:0];
+               channel_ack_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : channel_ack_reg[15:8];
+	       ack_pulse <= 1;
+               -> channel_ack_wrt;
+	     end
+	   3'b010 :
+	     begin
+               channel_err_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : channel_err_reg[ 7:0];
+               channel_err_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : channel_err_reg[15:8];
+	       error_pulse <= 1'b1;
+               -> channel_err_wrt;
+	     end
+	   3'b011 :
+	     begin
+	     end
+	   default: ;
+	endcase
+      else
+	begin
+	  ack_pulse   <= 0;
+	  error_pulse <= 1'b0;
+        end
+    end
+
+  always @check_point_wrt
+    begin
+      #1;
+      $display("\nSoftware Checkpoint #%h -- at vector=%d\n", check_point_reg, vector);
+    end
+
+  always @channel_err_wrt
+    begin
+      #1;
+      $display("\n ------ !!!!! Software Checkpoint Error #%d -- at vector=%d\n  -------", channel_err_reg, vector);
+    end
+
+
+endmodule // tb_slave
 
