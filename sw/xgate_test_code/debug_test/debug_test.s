@@ -82,7 +82,7 @@ _START
 	; Test
 	LDL	R4,#$c3	;
 	STW     R4,(R0,#$08)	;
-	LDL	R3,#$01		; R3 = $01
+	LDL	R7,#$01		; R3 = $01; R7 = $01
 	
 	BRK			; Enter Debug mode and start doing Single Step Commands
 				;  from the testbench. Verify PC and R3 values.
@@ -148,7 +148,7 @@ _START2
 	
 _T2_LOOP
 	ADDL    R3,#$01		; R3 + $01 => R3 (R3 = $02)
-	NOP
+	COM	R6		; Toggle R6
 	BRA	_T2_LOOP	; Create an infinate loop. The testbench will
 				;  take control using the Debug bit and change
 				;  the PC to exit the loop.
