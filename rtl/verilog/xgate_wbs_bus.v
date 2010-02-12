@@ -43,7 +43,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
                        parameter SINGLE_CYCLE = 1'b0)
   (
   // Wishbone Signals
-  output      [DWIDTH-1:0] wbs_dat_o,     // databus output
+  output reg  [DWIDTH-1:0] wbs_dat_o,     // databus output - Pseudo Register
   output                   wbs_ack_o,     // bus cycle acknowledge output
   output                   wbs_err_o,     // bus error, lost module select durning wait state
   input                    wbs_clk_i,     // master clock input
@@ -88,16 +88,16 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
 
   // registers
   reg                bus_wait_state;  // Holdoff wbs_ack_o for one clock to add wait state
-  reg  [DWIDTH-1:0]  rd_data_mux;     // Pseudo Register, WISHBONE Read Data Mux
-  reg  [DWIDTH-1:0]  rd_data_reg;     // Latch for WISHBONE Read Data
+  reg         [4:0]  addr_latch;      // Capture WISHBONE Address 
   
   reg                write_reserv1;   // Dummy Reg decode for Reserved address
   reg                write_reserv2;   // Dummy Reg decode for Reserved address
 
   // Wires
-  wire   module_sel;       // This module is selected for bus transaction
-  wire   wbs_wacc;         // WISHBONE Write Strobe (Clock gating signal)
-  wire   wbs_racc;         // WISHBONE Read Access (Clock gating signal)
+  wire       module_sel;      // This module is selected for bus transaction
+  wire       wbs_wacc;        // WISHBONE Write Strobe (Clock gating signal)
+  wire       wbs_racc;        // WISHBONE Read Access (Clock gating signal)
+  wire [4:0] address;         // Select either direct or latched address
 
   //
   // module body
@@ -112,8 +112,8 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   assign wbs_wacc    = module_sel && wbs_we_i && (wbs_ack_o || SINGLE_CYCLE);
   assign wbs_racc    = module_sel && !wbs_we_i;
   assign wbs_ack_o   = SINGLE_CYCLE ? module_sel : (bus_wait_state && module_sel);
-  assign wbs_dat_o   = SINGLE_CYCLE ? rd_data_mux : rd_data_reg;
   assign wbs_err_o   = !SINGLE_CYCLE && !module_sel && bus_wait_state;
+  assign address     = SINGLE_CYCLE ? wbs_adr_i : addr_latch;
 
   // generate acknowledge output signal, By using register all accesses takes two cycles.
   //  Accesses in back to back clock cycles are not possable.
@@ -125,43 +125,43 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
     else
       bus_wait_state <=  module_sel && !bus_wait_state;
 
-  // assign data read bus -- DAT_O
+  // Capture address in first cycle of WISHBONE Bus tranaction
+  //  Only used when Wait states are enabled
   always @(posedge wbs_clk_i)
-    if ( wbs_racc )                     // Clock gate for power saving
-      rd_data_reg <= rd_data_mux;
-
+    if ( module_sel )                  // Clock gate for power saving
+      addr_latch <= wbs_adr_i;
       
   // WISHBONE Read Data Mux
   always @*
-      case (wbs_adr_i) // synopsys parallel_case
+      case (address) // synopsys parallel_case
 	// 16 bit Bus, 16 bit Granularity
-	5'b0_0000: rd_data_mux = read_regs[ 15:  0];
-	5'b0_0001: rd_data_mux = read_regs[ 31: 16];
-	5'b0_0010: rd_data_mux = read_regs[ 47: 32];
-	5'b0_0011: rd_data_mux = read_regs[ 63: 48];
-	5'b0_0100: rd_data_mux = read_regs[ 79: 64];
-	5'b0_0101: rd_data_mux = read_regs[ 95: 80];
-	5'b0_0110: rd_data_mux = read_regs[111: 96];
-	5'b0_0111: rd_data_mux = read_regs[127:112];
-	5'b0_1000: rd_data_mux = read_regs[143:128];
-	5'b0_1001: rd_data_mux = read_regs[159:144];
-	5'b0_1010: rd_data_mux = read_regs[175:160];
-	5'b0_1011: rd_data_mux = read_regs[191:176];
-	5'b0_1100: rd_data_mux = read_regs[207:192];
-	5'b0_1101: rd_data_mux = read_regs[223:208];
-	5'b0_1110: rd_data_mux = read_regs[239:224];
-	5'b0_1111: rd_data_mux = read_regs[255:240];
-	5'b1_0000: rd_data_mux = read_regs[271:256];
-	5'b1_0001: rd_data_mux = read_regs[287:272];
-	5'b1_0010: rd_data_mux = read_regs[303:288];
-	5'b1_0011: rd_data_mux = read_regs[319:304];
-	5'b1_0100: rd_data_mux = read_regs[335:320];
-	5'b1_0101: rd_data_mux = read_regs[351:336];
-	5'b1_0110: rd_data_mux = read_regs[367:352];
-	5'b1_0111: rd_data_mux = read_regs[383:368];
-	5'b1_1000: rd_data_mux = read_regs[399:384];
-	5'b1_1001: rd_data_mux = read_regs[415:400];
-	default: rd_data_mux = 16'h0000;
+	5'b0_0000: wbs_dat_o = read_regs[ 15:  0];
+	5'b0_0001: wbs_dat_o = read_regs[ 31: 16];
+	5'b0_0010: wbs_dat_o = read_regs[ 47: 32];
+	5'b0_0011: wbs_dat_o = read_regs[ 63: 48];
+	5'b0_0100: wbs_dat_o = read_regs[ 79: 64];
+	5'b0_0101: wbs_dat_o = read_regs[ 95: 80];
+	5'b0_0110: wbs_dat_o = read_regs[111: 96];
+	5'b0_0111: wbs_dat_o = read_regs[127:112];
+	5'b0_1000: wbs_dat_o = read_regs[143:128];
+	5'b0_1001: wbs_dat_o = read_regs[159:144];
+	5'b0_1010: wbs_dat_o = read_regs[175:160];
+	5'b0_1011: wbs_dat_o = read_regs[191:176];
+	5'b0_1100: wbs_dat_o = read_regs[207:192];
+	5'b0_1101: wbs_dat_o = read_regs[223:208];
+	5'b0_1110: wbs_dat_o = read_regs[239:224];
+	5'b0_1111: wbs_dat_o = read_regs[255:240];
+	5'b1_0000: wbs_dat_o = read_regs[271:256];
+	5'b1_0001: wbs_dat_o = read_regs[287:272];
+	5'b1_0010: wbs_dat_o = read_regs[303:288];
+	5'b1_0011: wbs_dat_o = read_regs[319:304];
+	5'b1_0100: wbs_dat_o = read_regs[335:320];
+	5'b1_0101: wbs_dat_o = read_regs[351:336];
+	5'b1_0110: wbs_dat_o = read_regs[367:352];
+	5'b1_0111: wbs_dat_o = read_regs[383:368];
+	5'b1_1000: wbs_dat_o = read_regs[399:384];
+	5'b1_1001: wbs_dat_o = read_regs[415:400];
+	default: wbs_dat_o = 16'h0000;
       endcase
 
   // generate wishbone write register strobes
@@ -194,7 +194,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       write_xgr2   = 2'b00;
       write_xgr1   = 2'b00;
       if (wbs_wacc)
-	case (wbs_adr_i) // synopsys parallel_case
+	case (address) // synopsys parallel_case
            // 16 bit Bus, 8 bit Granularity
 	   5'b0_0000 : write_xgmctl  = &wbs_sel_i;
 	   5'b0_0001 : write_xgchid  = wbs_sel_i[0];
