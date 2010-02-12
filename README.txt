@@ -3,6 +3,27 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Feb 12,2010
+RTL - Update to the WISHBONE interface when wait states are enabled to trade
+   16 data flops for 5 address registers. This change now also requires single
+   cycle timing on the WISHBONE address bus, multi-cycle timing is still
+   allowed on the WISHBONE write data bus. In the old design WISHBONE read
+   cycles required the address to be decoded and the read data to be latched
+   in the first cycle and the there was a whole cycle to drive the read data
+   bus. The new design latches the address in the first cycle then decodes the
+   address and outputs the data in the second cycle. (The WISHBONE bus doesn't
+   require the address or data to be latched for multi-cycle operation but by
+   doing this it is hoped some power will be saved in the combinational logic
+   by reducing the decoding activity at each address change.)
+
+Testbench - No change.
+
+Doc - No change.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Jan 27,2010
 RTL - 85% done -- Fixed error in wbs_ack_o signal when Xgate wait states were
    enabled. If a slave bus transaction was started but not completed in the
