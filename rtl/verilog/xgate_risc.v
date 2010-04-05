@@ -193,7 +193,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg  [15:0] shift_filler;
   reg  [15:0] bf_mux_mask;   // Mask for controlling mux's in Bit Field Insert Instructions
 
-  wire        start_thread;  // Signle to pop RISC core out of IDLE State
+  wire        start_thread;  // Signal to pop RISC core out of IDLE State
 
   wire        cpu_is_idle;   // Processor is in the IDLE state
   wire        perif_wrt_ena; // Enable for Salve writes to CPU registers
@@ -218,9 +218,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   assign xgate_address = data_access ? data_address : program_counter;
   
-  //assign mem_access = data_access || load_next_inst || (start_thread);
+  //assign mem_access = data_access || load_next_inst || start_thread;
   assign mem_access = data_access || load_next_inst || (cpu_state == CONT) ||
-                     (cpu_state == BREAK_2)  || (start_thread);
+                     (cpu_state == BREAK_2)  || start_thread;
 
   // Generate an address for an op code fetch from an odd address or a word Load/Store from/to an odd address.
   assign addr_error = xgate_address[0] && (load_next_inst || (data_access && data_word_op));
@@ -322,7 +322,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       end
     else
       begin
-      debug_active  <= !xgdbg_clear && ((xgdbg_set && mem_req_ack && (next_cpu_state == CONT)) || brk_set_dbg || op_code_error || debug_active);
+      debug_active  <= !xgdbg_clear && ((xgdbg_set && mem_req_ack && (next_cpu_state == CONT)) ||
+                       brk_set_dbg || op_code_error || debug_active);
       debug_edge    <= debug_active;
       end
       
@@ -337,13 +338,16 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   assign single_step = (xgss && !xgss_edge) || (!debug_active && debug_edge);
 
+  wire stm_auto_advance;
+  assign stm_auto_advance = (chid_sm != CHID_IDLE);
+  // assign stm_auto_advance = (chid_sm != CHID_IDLE) || (!(load_next_inst || data_access));
 
   //  CPU State Register
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
       cpu_state  <= IDLE;
     else
-      cpu_state  <= (mem_req_ack || (chid_sm != CHID_IDLE)) ? next_cpu_state : cpu_state;
+      cpu_state  <= (mem_req_ack || stm_auto_advance) ? next_cpu_state : cpu_state;
 
   //  CPU Instruction Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -357,7 +361,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       xgchid  <= 7'b0;
     else
-      xgchid  <= (write_xgchid && debug_active) ? perif_data[6:0] : ((cpu_is_idle && mem_req_ack) ? int_req : xgchid);
+      xgchid  <= (write_xgchid && debug_active) ? perif_data[6:0] : (cpu_is_idle ? int_req : xgchid);
 
   //  Channel Change Debug state machine register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -403,6 +407,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       {(write_xgpc[1] ? perif_data[15:8]: program_counter[15:8]),
        (write_xgpc[0] ? perif_data[ 7:0]: program_counter[ 7:0])} :
       (mem_req_ack ? next_pc : program_counter);
+      //((mem_req_ack || (cpu_state == BREAK_2)) ? next_pc : program_counter);
 
   //  Debug Change Program Counter Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -533,7 +538,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       next_cpu_state = debug_active ? LD_INST : CONT;
       load_next_inst = 1'b1;
-      pc_incr_mux    = 16'h0002;  // Verilog Instruction order dependent
+      pc_incr_mux    = (debug_active && xgdbg_set) ? 16'h0000: 16'h0002;  // Verilog Instruction order dependent
       next_pc        = pc_sum;    // ""
 
       next_zero      = zero_flag;
@@ -679,7 +684,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       //  Load next instruction and increment PC
       {W_LOAD, 16'b????????????????} :
          begin
-           // alu_result       = read_mem_data;
            alu_result       = load_data;
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
@@ -689,7 +693,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       //  Load next instruction and increment PC
       {B_LOAD, 16'b????????????????} :
          begin
-           // alu_result       = {8'h00, read_mem_data[15:8]};
            alu_result       = {8'h00, load_data[15:8]};
            ena_rd_low_byte  = 1'b1;
            ena_rd_high_byte = 1'b1;
@@ -2147,135 +2150,27 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   assign semaph_stat = |risc_semap;
 
-  // A "generate" statment would be good here but it's not supported in iverilog
-  // Semaphore Bit
-  semaphore_bit semaphore_0(
-    // outputs
-    .host_status( host_semap[0] ),
-    .risc_status( risc_semap[0] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[0] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[8] ),
-    .host_bit( perif_data[0] )
-  );
-
-  // Semaphore Bit
-  semaphore_bit semaphore_1(
-    // outputs
-    .host_status( host_semap[1] ),
-    .risc_status( risc_semap[1] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[1] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[9] ),
-    .host_bit( perif_data[1] )
-  );
-
-  // Semaphore Bit
-  semaphore_bit semaphore_2(
-    // outputs
-    .host_status( host_semap[2] ),
-    .risc_status( risc_semap[2] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[2] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[10] ),
-    .host_bit( perif_data[2] )
-  );
-
-  // Semaphore Bit
-  semaphore_bit semaphore_3(
-    // outputs
-    .host_status( host_semap[3] ),
-    .risc_status( risc_semap[3] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[3] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[11] ),
-    .host_bit( perif_data[2] )
-  );
-
-  // Semaphore Bit
-  semaphore_bit semaphore_4(
-    // outputs
-    .host_status( host_semap[4] ),
-    .risc_status( risc_semap[4] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[4] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[12] ),
-    .host_bit( perif_data[4] )
-  );
-
-  // Semaphore Bit
-  semaphore_bit semaphore_5(
-    // outputs
-    .host_status( host_semap[5] ),
-    .risc_status( risc_semap[5] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[5] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[13] ),
-    .host_bit( perif_data[5] )
-  );
-
-  // Semaphore Bit
-  semaphore_bit semaphore_6(
-    // outputs
-    .host_status( host_semap[6] ),
-    .risc_status( risc_semap[6] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[6] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[14] ),
-    .host_bit( perif_data[6] )
-  );
-
-  // Semaphore Bit
-  semaphore_bit semaphore_7(
-    // outputs
-    .host_status( host_semap[7] ),
-    .risc_status( risc_semap[7] ),
-    // inputs
-    .risc_clk( risc_clk ),
-    .async_rst_b( async_rst_b ),
-    .risc_bit_sel( semap_risc_bit[7] ),
-    .csem( clear_semaph ),
-    .ssem( set_semaph ),
-    .host_wrt( write_xgsem ),
-    .host_bit_mask( perif_data[15] ),
-    .host_bit( perif_data[7] )
-  );
-
+  // Semaphore Bits
+  genvar sem_gen_count;
+  generate
+    for (sem_gen_count = 0; sem_gen_count < 8; sem_gen_count = sem_gen_count + 1)
+      begin:semaphore_
+	semaphore_bit bit(
+	  // outputs
+	  .host_status( host_semap[sem_gen_count] ),
+	  .risc_status( risc_semap[sem_gen_count] ),
+	  // inputs
+	  .risc_clk( risc_clk ),
+	  .async_rst_b( async_rst_b ),
+	  .risc_bit_sel( semap_risc_bit[sem_gen_count] ),
+	  .csem( clear_semaph ),
+	  .ssem( set_semaph ),
+	  .host_wrt( write_xgsem ),
+	  .host_bit_mask( perif_data[sem_gen_count+8] ),
+	  .host_bit( perif_data[sem_gen_count] )
+	);
+      end
+  endgenerate
 
   endmodule  // xgate_inst_decode
 
