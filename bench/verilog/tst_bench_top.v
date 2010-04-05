@@ -45,7 +45,7 @@ module tst_bench_top();
 
   parameter MAX_CHANNEL = 127;    // Max XGATE Interrupt Channel Number
   parameter STOP_ON_ERROR = 1'b0;
-  parameter MAX_VECTOR = 3000;
+  parameter MAX_VECTOR = 8000;
 
   parameter L_BYTE = 2'b01;
   parameter H_BYTE = 2'b10;
@@ -1195,10 +1195,13 @@ module bus_arbitration  #(parameter dwidth = 16,
   input                      rty   // No Connect
   );
   
-  // Debug states for change CHID
+  // States for bus arbitration
   parameter [1:0] BUS_IDLE = 2'b00,
                   HOST_OWNS = 2'b10,
                   RISC_OWNS = 2'b11;
+		  
+  parameter max_bus_hold = 5;    // Max number of cycles any bus master can hold the system bus
+  parameter ram_wait_states = 0; // Number between 0 and 15
   //////////////////////////////////////////////////////////////////////////////
   //
   // Local Wires and Registers
@@ -1218,7 +1221,8 @@ module bus_arbitration  #(parameter dwidth = 16,
   wire       host_timeout;
   wire       risc_timeout;
 
-  reg        wbm_ack_i;
+  wire       ram_ack_dly;    // Delayed bus ack to simulate bus wait states
+  reg  [3:0] ack_dly_cnt;    // Counter to delay bus ack to master modules
 
 
   //
@@ -1255,19 +1259,9 @@ module bus_arbitration  #(parameter dwidth = 16,
       default : owner_ns = BUS_IDLE;
     endcase
 
-/*
-// Throw in some wait states from the memory
-  always @(posedge mstr_test_clk)
-    if (((vector % 5) == 0) && (xgate.risc.load_next_inst || xgate.risc.data_access))
-//    if ((vector % 5) == 0)
-      wbm_ack_i <= 1'b1;
-    else
-      wbm_ack_i <= 1'b1;
-*/
-
   
-  assign host_timeout = (owner_state == HOST_OWNS) && (host_cycle_cnt > 5) && any_ack;
-  assign risc_timeout = (owner_state == RISC_OWNS) && (risc_cycle_cnt > 5) && any_ack;
+  assign host_timeout = (owner_state == HOST_OWNS) && (host_cycle_cnt > max_bus_hold) && any_ack;
+  assign risc_timeout = (owner_state == RISC_OWNS) && (risc_cycle_cnt > max_bus_hold) && any_ack;
 
   // Start counting cycles that the host has the bus, if the risc is also requesting the bus
   always @(posedge host_clk or negedge rst)
@@ -1306,7 +1300,15 @@ module bus_arbitration  #(parameter dwidth = 16,
                    (sys_adr >= ram_base) &&
 		   (sys_adr < (ram_base + ram_size));
 		   
-  assign ram_ack = ram_sel;
+  // Throw in some wait states from the memory
+  always @(posedge host_clk)
+    if ((ack_dly_cnt == ram_wait_states) || !ram_sel)
+      ack_dly_cnt <= 0;
+    else if (ram_sel)
+      ack_dly_cnt <= ack_dly_cnt + 1'b1;
+
+  assign ram_ack_dly = (ack_dly_cnt == ram_wait_states);
+  assign ram_ack = ram_sel && ram_ack_dly;
 
 
   // Create the System Read Data Bus from the Slave output data buses
