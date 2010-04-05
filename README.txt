@@ -3,6 +3,21 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Apr 5,2010
+RTL - First pass at fixing bug when entering DEBUG by command from the slave
+    WISHBONE bus. All tests now pass when the RAM wait states are set to zero,
+    although there are errors in DEBUG mode when RAM wait states are increased.
+   Icarus Verilog version 0.9.2 now supports the "generate" command. This is
+    now used to instantiate the semaphore registers.
+
+Testbench - Added capability to insert wait states on RAM access.
+
+Doc - No change.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Feb 12,2010
 RTL - Update to the WISHBONE interface when wait states are enabled to trade
    16 data flops for 5 address registers. This change now also requires single
