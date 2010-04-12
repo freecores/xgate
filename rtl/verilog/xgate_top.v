@@ -67,8 +67,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   input                  wbm_ack_i,     // bus cycle acknowledge input
   // XGATE IO Signals
   output          [ 7:0] xgswt,         // XGATE Software Trigger Register
-  output                 write_mem_strb_l, // Strobe for writing low data byte
-  output                 write_mem_strb_h, // Strobe for writing high data bye
   output                 xg_sw_irq,        // Xgate Software interrupt
   output [MAX_CHANNEL:0] xgif,             // XGATE Interrupt Flag
   input  [MAX_CHANNEL:0] chan_req_i,       // XGATE Interrupt request
@@ -148,10 +146,9 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        single_step;     // Pulse to trigger a single instruction execution in debug mode
   wire        ss_mem_ack;      // WISHBONE Bus has granted single step memory access
   
-  wire [ 7:0] host_semap;    // Semaphore status for host
-//  wire [15:0] write_mem_data;
-//  wire [15:0] read_mem_data;
-//  wire [15:0] perif_data;
+  wire [ 7:0] host_semap;       // Semaphore status for host
+  wire        write_mem_strb_l; // Strobe for writing low data byte
+  wire        write_mem_strb_h; // Strobe for writing high data bye
   
   assign xgif = xgif_status[MAX_CHANNEL:0];
   // ---------------------------------------------------------------------------
