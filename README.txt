@@ -3,6 +3,22 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+Apr 22,2010
+RTL - Fixed bug when entering DEBUG by command from the slave WISHBONE bus.
+    All tests now pass when the RAM wait states are set from zero to four. Five
+    wait states times out in simulation while running the last test which is
+    a simple register test otherwise I expect it would pass.
+
+Testbench - Many of the failures while testing wait states were due to fixed
+    delays coded in the testbench. As necessary delays were changed to be a
+    function of a parameter that is based on the number of RAM wait states.
+
+Doc - No change.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Apr 5,2010
 RTL - First pass at fixing bug when entering DEBUG by command from the slave
     WISHBONE bus. All tests now pass when the RAM wait states are set to zero,
