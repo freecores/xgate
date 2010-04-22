@@ -133,6 +133,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   reg  [ 3:0] cpu_state;         // State register for instruction processing
   reg  [ 3:0] next_cpu_state;    // Pseudo Register,
+  wire        stm_auto_advance;  // State Machine increment without wait state holdoff
   reg         load_next_inst;    // Pseudo Register,
   reg  [15:0] program_counter;   // Program Counter register
   wire [15:0] pc_sum;            // Program Counter Adder
@@ -203,6 +204,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         cmd_change_pc; // Debug write to PC register
   reg         debug_edge;    // Reg for edge detection
 
+  reg         cmd_dbg;
+ 
   reg  [ 1:0] chid_sm_ns;    // Pseudo Register for State Machine next state logic,
   reg  [ 1:0] chid_sm;       //
   wire        chid_goto_idle; //
@@ -212,6 +215,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
                   CHID_TEST = 2'b10,
                   CHID_WAIT = 2'b11;
 
+	
   assign jump_offset = {{6{op_code[8]}}, op_code[8:0], 1'b0};
   assign bra_offset  = {{5{op_code[9]}}, op_code[9:0], 1'b0};
   assign pc_sum      = program_counter + pc_incr_mux;
@@ -313,18 +317,30 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   assign xg_sw_irq = software_error && xgie;
 
+  //  Latch the need to go to debug state set by xgdb
+  always @(posedge risc_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      begin
+        cmd_dbg  <= 1'b0;
+      end
+    else
+      begin
+        cmd_dbg  <= !((cpu_state == LD_INST) || (cpu_state == DEBUG)) &&
+	             (cmd_dbg || (xgdbg_set && mem_req_ack && (next_cpu_state == CONT)));
+      end
+      
   //  Latch the debug state, set by eather xgdb or BRK instructions
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
       begin
-      debug_active  <= 1'b0;
-      debug_edge    <= 0;
+        debug_active  <= 1'b0;
+        debug_edge    <= 0;
       end
     else
       begin
-      debug_active  <= !xgdbg_clear && ((xgdbg_set && mem_req_ack && (next_cpu_state == CONT)) ||
-                       brk_set_dbg || op_code_error || debug_active);
-      debug_edge    <= debug_active;
+        debug_active  <= !xgdbg_clear && (cmd_dbg ||
+                         brk_set_dbg || op_code_error || debug_active);
+        debug_edge    <= debug_active;
       end
       
   assign debug_ack = debug_active && !debug_edge; // Posedge of debug_active
@@ -338,9 +354,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   assign single_step = (xgss && !xgss_edge) || (!debug_active && debug_edge);
 
-  wire stm_auto_advance;
   assign stm_auto_advance = (chid_sm != CHID_IDLE);
-  // assign stm_auto_advance = (chid_sm != CHID_IDLE) || (!(load_next_inst || data_access));
 
   //  CPU State Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -407,7 +421,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       {(write_xgpc[1] ? perif_data[15:8]: program_counter[15:8]),
        (write_xgpc[0] ? perif_data[ 7:0]: program_counter[ 7:0])} :
       (mem_req_ack ? next_pc : program_counter);
-      //((mem_req_ack || (cpu_state == BREAK_2)) ? next_pc : program_counter);
 
   //  Debug Change Program Counter Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -536,9 +549,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       ena_rd_low_byte  = 1'b0;
       ena_rd_high_byte = 1'b0;
 
-      next_cpu_state = debug_active ? LD_INST : CONT;
+      next_cpu_state = (debug_active || cmd_dbg) ? LD_INST : CONT;
       load_next_inst = 1'b1;
-      pc_incr_mux    = (debug_active && xgdbg_set) ? 16'h0000: 16'h0002;  // Verilog Instruction order dependent
+      pc_incr_mux    = cmd_dbg ? 16'h0000: 16'h0002;  // Verilog Instruction order dependent
       next_pc        = pc_sum;    // ""
 
       next_zero      = zero_flag;
