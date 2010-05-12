@@ -41,7 +41,7 @@
 module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
                    parameter SINGLE_CYCLE = 1'b0,  // 
 		   parameter MAX_CHANNEL = 127,    // Max XGATE Interrupt Channel Number
-		   parameter DWIDTH = 16)          // Data bus width
+		   parameter WB_RD_DEFAULT = 0)    // WISHBONE Read Bus default state
   (
   // Wishbone Slave Signals
   output    [DWIDTH-1:0] wbs_dat_o,     // databus output
@@ -50,7 +50,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   input                  wbs_clk_i,     // master clock input
   input                  wbs_rst_i,     // synchronous active high reset
   input                  arst_i,        // asynchronous reset
-  input            [5:1] wbs_adr_i,     // lower address bits
+  input            [6:1] wbs_adr_i,     // lower address bits
   input     [DWIDTH-1:0] wbs_dat_i,     // databus input
   input                  wbs_we_i,      // write enable input
   input                  wbs_stb_i,     // stobe/core select signal
@@ -68,13 +68,15 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   // XGATE IO Signals
   output          [ 7:0] xgswt,         // XGATE Software Trigger Register
   output                 xg_sw_irq,        // Xgate Software interrupt
-  output [MAX_CHANNEL:0] xgif,             // XGATE Interrupt Flag
+  output [MAX_CHANNEL:0] xgif,             // XGATE Interrupt Flag to Host
   input  [MAX_CHANNEL:0] chan_req_i,       // XGATE Interrupt request
   input                  risc_clk,         // Clock for RISC core
   input                  debug_mode_i,     // Force RISC core into debug mode
   input                  secure_mode_i,    // Limit host asscess to Xgate RISC registers
   input                  scantestmode      // Chip in in scan test mode
   );
+
+  parameter DWIDTH = 16;     // Data bus width
 
   wire        zero_flag;
   wire        negative_flag;
@@ -99,6 +101,14 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire  [1:0] write_xgif_2;  // Write Strobe for Interrupt Flag Register 2
   wire  [1:0] write_xgif_1;  // Write Strobe for Interrupt Flag Register 1
   wire  [1:0] write_xgif_0;  // Write Strobe for Interrupt Flag Register 0
+  wire  [1:0] write_irw_en_7; // Write Strobe for Interrupt Bypass Control Register 7
+  wire  [1:0] write_irw_en_6; // Write Strobe for Interrupt Bypass Control Register 6
+  wire  [1:0] write_irw_en_5; // Write Strobe for Interrupt Bypass Control Register 5
+  wire  [1:0] write_irw_en_4; // Write Strobe for Interrupt Bypass Control Register 4
+  wire  [1:0] write_irw_en_3; // Write Strobe for Interrupt Bypass Control Register 3
+  wire  [1:0] write_irw_en_2; // Write Strobe for Interrupt Bypass Control Register 2
+  wire  [1:0] write_irw_en_1; // Write Strobe for Interrupt Bypass Control Register 1
+  wire  [1:0] write_irw_en_0; // Write Strobe for Interrupt Bypass Control Register 0
   wire        write_xgswt;   // Write Strobe for XGSWT register
   wire        write_xgsem;   // Write Strobe for XGSEM register
   wire        write_xgccr;   // Write Strobe for XGATE Condition Code Register
@@ -120,6 +130,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        clear_xgif_1;    // Strobe for decode to clear interrupt flag bank 1
   wire        clear_xgif_0;    // Strobe for decode to clear interrupt flag bank 0
   wire [15:0] clear_xgif_data; // Data for decode to clear interrupt flag
+  wire [MAX_CHANNEL:0] chan_bypass; // XGATE Interrupt enable or bypass
 
   wire        xge;           // XGATE Module Enable
   wire        xgfrz;         // Stop XGATE in Freeze Mode
@@ -131,7 +142,9 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        xgie;          // XGATE Interrupt Enable
   wire [ 6:0] int_req;       // Encoded interrupt request
   wire [ 6:0] xgchid;        // Channel actively being processed
-  wire [127:0] xgif_status;   // Status bits of interrupt output flags that have been set
+  wire [127:0] xgif_status;  // Status bits of interrupt output flags that have been set
+  wire [127:0] irq_bypass;   // IRQ status bits WISHBONE Read bus
+
   wire [15:1] xgvbr;         // XGATE vector Base Address Register
   wire        brk_irq_ena;   // Enable BRK instruction to generate interrupt
   
@@ -150,11 +163,11 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        write_mem_strb_l; // Strobe for writing low data byte
   wire        write_mem_strb_h; // Strobe for writing high data bye
   
-  assign xgif = xgif_status[MAX_CHANNEL:0];
   // ---------------------------------------------------------------------------
   // Wishbone Slave Bus interface
   xgate_wbs_bus #(.ARST_LVL(ARST_LVL),
-                  .SINGLE_CYCLE(SINGLE_CYCLE))
+                  .SINGLE_CYCLE(SINGLE_CYCLE),
+		  .WB_RD_DEFAULT(WB_RD_DEFAULT))
     wishbone_s(
     .wbs_dat_o( wbs_dat_o ),
     .wbs_ack_o( wbs_ack_o ),
@@ -193,9 +206,17 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .write_xgr3( write_xgr3 ),
     .write_xgr2( write_xgr2 ),
     .write_xgr1( write_xgr1 ),
+    .write_irw_en_7( write_irw_en_7 ),
+    .write_irw_en_6( write_irw_en_6 ),
+    .write_irw_en_5( write_irw_en_5 ),
+    .write_irw_en_4( write_irw_en_4 ),
+    .write_irw_en_3( write_irw_en_3 ),
+    .write_irw_en_2( write_irw_en_2 ),
+    .write_irw_en_1( write_irw_en_1 ),
+    .write_irw_en_0( write_irw_en_0 ),
     // inputs    
-    .async_rst_b  ( async_rst_b ),
-    .read_regs    (               // in  -- read register bits
+    .async_rst_b( async_rst_b ),
+    .read_risc_regs(               // in  -- read register bits
 		   { xgr7,             // XGR7
 		     xgr6,             // XGR6
 		     xgr5,             // XGR5
@@ -223,7 +244,9 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 		     {8'b0, 1'b0, xgchid}, // XGCHID
 		     {8'b0, xge, xgfrz, debug_active, 1'b0, xgfact, brk_irq_ena, xg_sw_irq, xgie}  // XGMCTL
 		   }
-		  )
+		  ),
+    .irq_bypass( irq_bypass )
+
   );
 
   // ---------------------------------------------------------------------------
@@ -251,6 +274,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .clear_xgif_1( clear_xgif_1 ),
     .clear_xgif_0( clear_xgif_0 ),
     .clear_xgif_data( clear_xgif_data ),
+    .irq_bypass( irq_bypass ),
+    .chan_bypass( chan_bypass ),
 
     // inputs
     .async_rst_b( async_rst_b ),
@@ -267,6 +292,14 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .write_xgif_2( write_xgif_2 ),
     .write_xgif_1( write_xgif_1 ),
     .write_xgif_0( write_xgif_0 ),
+    .write_irw_en_7( write_irw_en_7 ),
+    .write_irw_en_6( write_irw_en_6 ),
+    .write_irw_en_5( write_irw_en_5 ),
+    .write_irw_en_4( write_irw_en_4 ),
+    .write_irw_en_3( write_irw_en_3 ),
+    .write_irw_en_2( write_irw_en_2 ),
+    .write_irw_en_1( write_irw_en_1 ),
+    .write_irw_en_0( write_irw_en_0 ),
     .write_xgswt( write_xgswt ),
     .debug_ack( debug_ack )
   );
@@ -341,9 +374,12 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   xgate_irq_encode #(.MAX_CHANNEL(MAX_CHANNEL)) 
     irq_encode(
     // outputs
+    .xgif( xgif ),
     .int_req( int_req ),
     // inputs
-    .chan_req_i( chan_req_i )
+    .chan_req_i( chan_req_i ),
+    .chan_bypass( chan_bypass ),
+    .xgif_status( xgif_status )
   );
 
   // ---------------------------------------------------------------------------

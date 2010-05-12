@@ -40,16 +40,17 @@
 
 module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   		       parameter DWIDTH = 16,
+		       parameter WB_RD_DEFAULT = 0,  // WISHBONE Read Bus default state
                        parameter SINGLE_CYCLE = 1'b0)
   (
   // Wishbone Signals
-  output reg  [DWIDTH-1:0] wbs_dat_o,     // databus output - Pseudo Register
+  output      [DWIDTH-1:0] wbs_dat_o,     // databus output - Pseudo Register
   output                   wbs_ack_o,     // bus cycle acknowledge output
   output                   wbs_err_o,     // bus error, lost module select durning wait state
   input                    wbs_clk_i,     // master clock input
   input                    wbs_rst_i,     // synchronous active high reset
   input                    arst_i,        // asynchronous reset
-  input             [ 5:1] wbs_adr_i,     // lower address bits
+  input             [ 6:1] wbs_adr_i,     // lower address bits
   input       [DWIDTH-1:0] wbs_dat_i,     // databus input
   input                    wbs_we_i,      // write enable input
   input                    wbs_stb_i,     // stobe/core select signal
@@ -80,24 +81,37 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   output reg         [1:0] write_xgr3,   // Write Strobe for XGATE Data Register R3
   output reg         [1:0] write_xgr2,   // Write Strobe for XGATE Data Register R2
   output reg         [1:0] write_xgr1,   // Write Strobe for XGATE Data Register R1
-  output                   async_rst_b,  //
-  output                   sync_reset,   //
-  input            [415:0] read_regs     // status register bits
+  output reg         [1:0] write_irw_en_7, // Write Strobe for Interrupt Bypass Control Register 7
+  output reg         [1:0] write_irw_en_6, // Write Strobe for Interrupt Bypass Control Register 6
+  output reg         [1:0] write_irw_en_5, // Write Strobe for Interrupt Bypass Control Register 5
+  output reg         [1:0] write_irw_en_4, // Write Strobe for Interrupt Bypass Control Register 4
+  output reg         [1:0] write_irw_en_3, // Write Strobe for Interrupt Bypass Control Register 3
+  output reg         [1:0] write_irw_en_2, // Write Strobe for Interrupt Bypass Control Register 2
+  output reg         [1:0] write_irw_en_1, // Write Strobe for Interrupt Bypass Control Register 1
+  output reg         [1:0] write_irw_en_0, // Write Strobe for Interrupt Bypass Control Register 0
+  output                   async_rst_b,    //
+  output                   sync_reset,     //
+  input            [415:0] read_risc_regs, // status register bits for WISHBONE Read bus
+  input            [127:0] irq_bypass      // IRQ status bits WISHBONE Read bus
   );
 
 
   // registers
   reg                bus_wait_state;  // Holdoff wbs_ack_o for one clock to add wait state
-  reg         [4:0]  addr_latch;      // Capture WISHBONE Address 
+  reg         [5:0]  addr_latch;      // Capture WISHBONE Address 
   
   reg                write_reserv1;   // Dummy Reg decode for Reserved address
   reg                write_reserv2;   // Dummy Reg decode for Reserved address
+  
+  reg  [DWIDTH-1:0]  read_mux_irq;    // Psudo register for WISHBONE IRQ read data bus mux
 
   // Wires
   wire       module_sel;      // This module is selected for bus transaction
   wire       wbs_wacc;        // WISHBONE Write Strobe (Clock gating signal)
   wire       wbs_racc;        // WISHBONE Read Access (Clock gating signal)
-  wire [4:0] address;         // Select either direct or latched address
+  wire [5:0] address;         // Select either direct or latched address
+  
+  reg [DWIDTH-1:0] read_mux_risc;  // Pseudo regester for WISHBONE RISC read data bus mux 
 
   //
   // module body
@@ -114,9 +128,11 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   assign wbs_ack_o   = SINGLE_CYCLE ? module_sel : (bus_wait_state && module_sel);
   assign wbs_err_o   = !SINGLE_CYCLE && !module_sel && bus_wait_state;
   assign address     = SINGLE_CYCLE ? wbs_adr_i : addr_latch;
+  
+  assign wbs_dat_o   = read_mux_risc | read_mux_irq;
 
   // generate acknowledge output signal, By using register all accesses takes two cycles.
-  //  Accesses in back to back clock cycles are not possable.
+  //  Accesses in back to back clock cycles are not possible.
   always @(posedge wbs_clk_i or negedge async_rst_b)
     if (!async_rst_b)
       bus_wait_state <=  1'b0;
@@ -131,40 +147,40 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
     if ( module_sel )                  // Clock gate for power saving
       addr_latch <= wbs_adr_i;
       
-  // WISHBONE Read Data Mux
+  // WISHBONE Read Data Mux for RISC status and control registers
   always @*
-      case (address) // synopsys parallel_case
+      case ({wbs_racc, address}) // synopsys parallel_case
 	// 16 bit Bus, 16 bit Granularity
-	5'b0_0000: wbs_dat_o = read_regs[ 15:  0];
-	5'b0_0001: wbs_dat_o = read_regs[ 31: 16];
-	5'b0_0010: wbs_dat_o = read_regs[ 47: 32];
-	5'b0_0011: wbs_dat_o = read_regs[ 63: 48];
-	5'b0_0100: wbs_dat_o = read_regs[ 79: 64];
-	5'b0_0101: wbs_dat_o = read_regs[ 95: 80];
-	5'b0_0110: wbs_dat_o = read_regs[111: 96];
-	5'b0_0111: wbs_dat_o = read_regs[127:112];
-	5'b0_1000: wbs_dat_o = read_regs[143:128];
-	5'b0_1001: wbs_dat_o = read_regs[159:144];
-	5'b0_1010: wbs_dat_o = read_regs[175:160];
-	5'b0_1011: wbs_dat_o = read_regs[191:176];
-	5'b0_1100: wbs_dat_o = read_regs[207:192];
-	5'b0_1101: wbs_dat_o = read_regs[223:208];
-	5'b0_1110: wbs_dat_o = read_regs[239:224];
-	5'b0_1111: wbs_dat_o = read_regs[255:240];
-	5'b1_0000: wbs_dat_o = read_regs[271:256];
-	5'b1_0001: wbs_dat_o = read_regs[287:272];
-	5'b1_0010: wbs_dat_o = read_regs[303:288];
-	5'b1_0011: wbs_dat_o = read_regs[319:304];
-	5'b1_0100: wbs_dat_o = read_regs[335:320];
-	5'b1_0101: wbs_dat_o = read_regs[351:336];
-	5'b1_0110: wbs_dat_o = read_regs[367:352];
-	5'b1_0111: wbs_dat_o = read_regs[383:368];
-	5'b1_1000: wbs_dat_o = read_regs[399:384];
-	5'b1_1001: wbs_dat_o = read_regs[415:400];
-	default: wbs_dat_o = 16'h0000;
+	7'b100_0000: read_mux_risc = read_risc_regs[ 15:  0];
+	7'b100_0001: read_mux_risc = read_risc_regs[ 31: 16];
+	7'b100_0010: read_mux_risc = read_risc_regs[ 47: 32];
+	7'b100_0011: read_mux_risc = read_risc_regs[ 63: 48];
+	7'b100_0100: read_mux_risc = read_risc_regs[ 79: 64];
+	7'b100_0101: read_mux_risc = read_risc_regs[ 95: 80];
+	7'b100_0110: read_mux_risc = read_risc_regs[111: 96];
+	7'b100_0111: read_mux_risc = read_risc_regs[127:112];
+	7'b100_1000: read_mux_risc = read_risc_regs[143:128];
+	7'b100_1001: read_mux_risc = read_risc_regs[159:144];
+	7'b100_1010: read_mux_risc = read_risc_regs[175:160];
+	7'b100_1011: read_mux_risc = read_risc_regs[191:176];
+	7'b100_1100: read_mux_risc = read_risc_regs[207:192];
+	7'b100_1101: read_mux_risc = read_risc_regs[223:208];
+	7'b100_1110: read_mux_risc = read_risc_regs[239:224];
+	7'b100_1111: read_mux_risc = read_risc_regs[255:240];
+	7'b101_0000: read_mux_risc = read_risc_regs[271:256];
+	7'b101_0001: read_mux_risc = read_risc_regs[287:272];
+	7'b101_0010: read_mux_risc = read_risc_regs[303:288];
+	7'b101_0011: read_mux_risc = read_risc_regs[319:304];
+	7'b101_0100: read_mux_risc = read_risc_regs[335:320];
+	7'b101_0101: read_mux_risc = read_risc_regs[351:336];
+	7'b101_0110: read_mux_risc = read_risc_regs[367:352];
+	7'b101_0111: read_mux_risc = read_risc_regs[383:368];
+	7'b101_1000: read_mux_risc = read_risc_regs[399:384];
+	7'b101_1001: read_mux_risc = read_risc_regs[415:400];
+	default: read_mux_risc = {DWIDTH{WB_RD_DEFAULT}};
       endcase
 
-  // generate wishbone write register strobes
+  // generate wishbone write register strobes for Xgate RISC 
   always @*
     begin
       write_reserv1 = 1'b0;
@@ -196,32 +212,73 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       if (wbs_wacc)
 	case (address) // synopsys parallel_case
            // 16 bit Bus, 8 bit Granularity
-	   5'b0_0000 : write_xgmctl  = &wbs_sel_i;
-	   5'b0_0001 : write_xgchid  = wbs_sel_i[0];
-	   5'b0_0010 : write_xgisp74 = 1'b1;
-	   5'b0_0011 : write_xgisp30 = 1'b1;
-	   5'b0_0100 : write_xgvbr   = wbs_sel_i;
-	   5'b0_0101 : write_xgif_7  = wbs_sel_i;
-	   5'b0_0110 : write_xgif_6  = wbs_sel_i;
-	   5'b0_0111 : write_xgif_5  = wbs_sel_i;
-	   5'b0_1000 : write_xgif_4  = wbs_sel_i;
-	   5'b0_1001 : write_xgif_3  = wbs_sel_i;
-	   5'b0_1010 : write_xgif_2  = wbs_sel_i;
-	   5'b0_1011 : write_xgif_1  = wbs_sel_i;
-	   5'b0_1100 : write_xgif_0  = wbs_sel_i;
-	   5'b0_1101 : write_xgswt   = &wbs_sel_i;
-	   5'b0_1110 : write_xgsem   = &wbs_sel_i;
-	   5'b0_1111 : write_reserv1 = 1'b1;
-	   5'b1_0000 : write_xgccr   = wbs_sel_i[0];
-	   5'b1_0001 : write_xgpc    = wbs_sel_i;
-	   5'b1_0010 : write_reserv2 = 1'b1;
-	   5'b1_0011 : write_xgr1    = wbs_sel_i;
-	   5'b1_0100 : write_xgr2    = wbs_sel_i;
-	   5'b1_0101 : write_xgr3    = wbs_sel_i;
-	   5'b1_0110 : write_xgr4    = wbs_sel_i;
-	   5'b1_0111 : write_xgr5    = wbs_sel_i;
-	   5'b1_1000 : write_xgr6    = wbs_sel_i;
-	   5'b1_1001 : write_xgr7    = wbs_sel_i;
+	   6'b00_0000 : write_xgmctl  = &wbs_sel_i;
+	   6'b00_0001 : write_xgchid  = wbs_sel_i[0];
+	   6'b00_0010 : write_xgisp74 = 1'b1;
+	   6'b00_0011 : write_xgisp30 = 1'b1;
+	   6'b00_0100 : write_xgvbr   = wbs_sel_i;
+	   6'b00_0101 : write_xgif_7  = wbs_sel_i;
+	   6'b00_0110 : write_xgif_6  = wbs_sel_i;
+	   6'b00_0111 : write_xgif_5  = wbs_sel_i;
+	   6'b00_1000 : write_xgif_4  = wbs_sel_i;
+	   6'b00_1001 : write_xgif_3  = wbs_sel_i;
+	   6'b00_1010 : write_xgif_2  = wbs_sel_i;
+	   6'b00_1011 : write_xgif_1  = wbs_sel_i;
+	   6'b00_1100 : write_xgif_0  = wbs_sel_i;
+	   6'b00_1101 : write_xgswt   = &wbs_sel_i;
+	   6'b00_1110 : write_xgsem   = &wbs_sel_i;
+	   6'b00_1111 : write_reserv1 = 1'b1;
+	   6'b01_0000 : write_xgccr   = wbs_sel_i[0];
+	   6'b01_0001 : write_xgpc    = wbs_sel_i;
+	   6'b01_0010 : write_reserv2 = 1'b1;
+	   6'b01_0011 : write_xgr1    = wbs_sel_i;
+	   6'b01_0100 : write_xgr2    = wbs_sel_i;
+	   6'b01_0101 : write_xgr3    = wbs_sel_i;
+	   6'b01_0110 : write_xgr4    = wbs_sel_i;
+	   6'b01_0111 : write_xgr5    = wbs_sel_i;
+	   6'b01_1000 : write_xgr6    = wbs_sel_i;
+	   6'b01_1001 : write_xgr7    = wbs_sel_i;
+	   default: ;
+	endcase
+    end
+
+  // WISHBONE Read Data Mux for IRQ control registers
+  always @*
+      case ({wbs_racc, address}) // synopsys parallel_case
+	// 16 bit Bus, 16 bit Granularity
+	7'b110_0000: read_mux_irq = irq_bypass[ 15:  0];
+	7'b110_0001: read_mux_irq = irq_bypass[ 31: 16];
+	7'b110_0010: read_mux_irq = irq_bypass[ 47: 32];
+	7'b110_0011: read_mux_irq = irq_bypass[ 63: 48];
+	7'b110_0100: read_mux_irq = irq_bypass[ 79: 64];
+	7'b110_0101: read_mux_irq = irq_bypass[ 95: 80];
+	7'b110_0110: read_mux_irq = irq_bypass[111: 96];
+	7'b110_0111: read_mux_irq = irq_bypass[127:112];
+	default: read_mux_irq = {DWIDTH{WB_RD_DEFAULT}};
+      endcase
+
+  // generate wishbone write register strobes for interrupt control
+  always @*
+    begin
+      write_irw_en_7 = 2'b00;
+      write_irw_en_6 = 2'b00;
+      write_irw_en_5 = 2'b00;
+      write_irw_en_4 = 2'b00;
+      write_irw_en_3 = 2'b00;
+      write_irw_en_2 = 2'b00;
+      write_irw_en_1 = 2'b00;
+      write_irw_en_0 = 2'b00;
+      if (wbs_wacc)
+	case (address) // synopsys parallel_case
+           // 16 bit Bus, 8 bit Granularity
+	   6'b10_0000 : write_irw_en_0  = wbs_sel_i;
+	   6'b10_0001 : write_irw_en_1  = wbs_sel_i;
+	   6'b10_0010 : write_irw_en_2  = wbs_sel_i;
+	   6'b10_0011 : write_irw_en_3  = wbs_sel_i;
+	   6'b10_0100 : write_irw_en_4  = wbs_sel_i;
+	   6'b10_0101 : write_irw_en_5  = wbs_sel_i;
+	   6'b10_0110 : write_irw_en_6  = wbs_sel_i;
+	   6'b10_0111 : write_irw_en_7  = wbs_sel_i;
 	   default: ;
 	endcase
     end

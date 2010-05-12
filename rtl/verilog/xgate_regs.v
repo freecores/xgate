@@ -62,6 +62,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   output reg           [15:0] clear_xgif_data, // Data for decode to clear interrupt flag
   output                      semaph_stat,     // Return Status of Semaphore bit
   output reg                  brk_irq_ena,     // Enable BRK instruction to generate interrupt
+  output      [MAX_CHANNEL:0] chan_bypass,     // XGATE Interrupt enable or bypass
+  output reg          [127:0] irq_bypass,      // Register to hold irq bypass control state
 
   input                       bus_clk,       // Control register bus clock
   input                       async_rst_b,   // Async reset signal
@@ -77,12 +79,24 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                [ 1:0] write_xgif_2,  // Write Strobe for Interrupt Flag Register 2
   input                [ 1:0] write_xgif_1,  // Write Strobe for Interrupt Flag Register 1
   input                [ 1:0] write_xgif_0,  // Write Strobe for Interrupt Flag Register 0
-  input                       write_xgswt,   // Write Strobe for XGSWT register
-  input                       debug_ack      // Clear debug register
+  input                [ 1:0] write_irw_en_7, // Write Strobe for Interrupt Bypass Control Register 7
+  input                [ 1:0] write_irw_en_6, // Write Strobe for Interrupt Bypass Control Register 6
+  input                [ 1:0] write_irw_en_5, // Write Strobe for Interrupt Bypass Control Register 5
+  input                [ 1:0] write_irw_en_4, // Write Strobe for Interrupt Bypass Control Register 4
+  input                [ 1:0] write_irw_en_3, // Write Strobe for Interrupt Bypass Control Register 3
+  input                [ 1:0] write_irw_en_2, // Write Strobe for Interrupt Bypass Control Register 2
+  input                [ 1:0] write_irw_en_1, // Write Strobe for Interrupt Bypass Control Register 1
+  input                [ 1:0] write_irw_en_0, // Write Strobe for Interrupt Bypass Control Register 0
+  input                       write_xgswt,    // Write Strobe for XGSWT register
+  input                       debug_ack       // Clear debug register
   );
 
 
+  integer j;     // Loop counter for channel bypass counter assigments
+  integer k;     // Loop counter for channel bypass counter assigments
+
   // registers
+  reg [127:0] irq_bypass_d; // Pseudo regester for routing address and data to irq bypass register
 
   // Wires
   wire [ 1:0] write_any_xgif;
@@ -103,7 +117,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
         xgdbg_clear <= 1'b0;
         xgss        <= 1'b0;
         xgfact      <= 1'b0;
-	brk_irq_ena <= 1'b0;
+        brk_irq_ena <= 1'b0;
         xgsweif_c   <= 1'b0;
         xgie        <= 1'b0;
        end
@@ -115,7 +129,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
         xgdbg_clear <= 1'b0;
         xgss        <= 1'b0;
         xgfact      <= 1'b0;
-	brk_irq_ena <= 1'b0;
+        brk_irq_ena <= 1'b0;
         xgsweif_c   <= 1'b0;
         xgie        <= 1'b0;
      end
@@ -208,17 +222,69 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
     else if (sync_reset)
       xgswt <= 8'h00;
     else if (write_xgswt)
-      begin
-        xgswt[7] <= write_bus[15] ? write_bus[7] : xgswt[7];
-        xgswt[6] <= write_bus[14] ? write_bus[6] : xgswt[6];
-        xgswt[5] <= write_bus[13] ? write_bus[5] : xgswt[5];
-        xgswt[4] <= write_bus[11] ? write_bus[4] : xgswt[4];
-        xgswt[3] <= write_bus[12] ? write_bus[3] : xgswt[3];
-        xgswt[2] <= write_bus[10] ? write_bus[2] : xgswt[2];
-        xgswt[1] <= write_bus[ 9] ? write_bus[1] : xgswt[1];
-        xgswt[0] <= write_bus[ 8] ? write_bus[0] : xgswt[0];
-      end
+      xgswt <= (write_bus[15:8] & write_bus[7:0]) | (~write_bus[15:8] & xgswt[7:0]);
 
+
+  // Channel Bypass Register input bits
+  always @*
+    begin
+      k = 0;
+      for (j = 0; j <= 127; j = j + 1)
+	begin
+	  if (j <= MAX_CHANNEL)
+	    begin
+	      if ((j >= 0) && (j < 8))
+		irq_bypass_d[j] = write_irw_en_0[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 8) && (j < 16))
+		irq_bypass_d[j] = write_irw_en_0[1] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 16) && (j < 24))
+		irq_bypass_d[j] = write_irw_en_1[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 24) && (j < 32))
+		irq_bypass_d[j] = write_irw_en_1[1] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 32) && (j < 40))
+		irq_bypass_d[j] = write_irw_en_2[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 40) && (j < 48))
+		irq_bypass_d[j] = write_irw_en_2[1] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 48) && (j < 56))
+		irq_bypass_d[j] = write_irw_en_3[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 56) && (j < 64))
+		irq_bypass_d[j] = write_irw_en_3[1] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 64) && (j < 72))
+		irq_bypass_d[j] = write_irw_en_4[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 72) && (j < 80))
+		irq_bypass_d[j] = write_irw_en_4[1] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 80) && (j < 88))
+		irq_bypass_d[j] = write_irw_en_5[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 88) && (j < 96))
+		irq_bypass_d[j] = write_irw_en_5[1] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 96) && (j < 104))
+		irq_bypass_d[j] = write_irw_en_6[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 104) && (j < 112))
+		irq_bypass_d[j] = write_irw_en_6[1] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 112) && (j < 120))
+		irq_bypass_d[j] = write_irw_en_7[0] ? write_bus[k] : irq_bypass[j];
+	      if ((j >= 120) && (j < 128))
+		irq_bypass_d[j] = write_irw_en_7[1] ? write_bus[k] : irq_bypass[j];
+	    end
+	    else
+	      irq_bypass_d[j]  = 1'b0;
+	    k = k + 1;
+	    if (k > 15)
+	      k = 0;
+	end
+    end
+
+  //  Channel Bypass Registers
+  //   Synthesys should eliminate bits that with D input tied to zero
+  always @(posedge bus_clk or negedge async_rst_b)
+    if ( !async_rst_b )
+      irq_bypass  <= {128{1'b1}};
+    else
+      irq_bypass  <= irq_bypass_d;
+
+  // Alias the register name to the output pin name so only the used bit are carried out
+  // assign chan_bypass = {(MAX_CHANNEL+1){1'b1}}; 
+  assign chan_bypass = irq_bypass[MAX_CHANNEL:0]; 
 
 endmodule  // xgate_regs
 

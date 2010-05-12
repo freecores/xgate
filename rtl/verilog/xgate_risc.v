@@ -456,22 +456,22 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          xgif_d[j]  = xgif_status[j] || (set_irq_flag == j);
          j = j + 1;
         end
-        if (clear_xgif_0)
-          xgif_d[15: 0]  = ~clear_xgif_data & xgif_status[15: 0];
-        if (clear_xgif_1)
-          xgif_d[31:16]  = ~clear_xgif_data & xgif_status[31:16];
-        if (clear_xgif_2)
-          xgif_d[47:32]  = ~clear_xgif_data & xgif_status[47:32];
-        if (clear_xgif_3)
-          xgif_d[63:48]  = ~clear_xgif_data & xgif_status[63:48];
-        if (clear_xgif_4)
-          xgif_d[79:64]  = ~clear_xgif_data & xgif_status[79:64];
-        if (clear_xgif_5)
-          xgif_d[95:80]  = ~clear_xgif_data & xgif_status[95:80];
-        if (clear_xgif_6)
-          xgif_d[111:96]  = ~clear_xgif_data & xgif_status[111:96];
-        if (clear_xgif_7)
-          xgif_d[127:112]  = ~clear_xgif_data & xgif_status[127:112];
+      if (clear_xgif_0)
+	xgif_d[15: 0]  = ~clear_xgif_data & xgif_status[15: 0];
+      if (clear_xgif_1)
+	xgif_d[31:16]  = ~clear_xgif_data & xgif_status[31:16];
+      if (clear_xgif_2)
+	xgif_d[47:32]  = ~clear_xgif_data & xgif_status[47:32];
+      if (clear_xgif_3)
+	xgif_d[63:48]  = ~clear_xgif_data & xgif_status[63:48];
+      if (clear_xgif_4)
+	xgif_d[79:64]  = ~clear_xgif_data & xgif_status[79:64];
+      if (clear_xgif_5)
+	xgif_d[95:80]  = ~clear_xgif_data & xgif_status[95:80];
+      if (clear_xgif_6)
+	xgif_d[111:96]  = ~clear_xgif_data & xgif_status[111:96];
+      if (clear_xgif_7)
+	xgif_d[127:112] = ~clear_xgif_data & xgif_status[127:112];
     end
 
   //  Interrupt Flag Registers
