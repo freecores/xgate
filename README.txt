@@ -3,6 +3,24 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+May 12,2010
+RTL - Added new control registers for interrupt bypass function. Out of reset
+    all input interrupts are bypassed directly to the Xgate interrupt outputs.
+    The interrupts are also disabled from effecting the Xgate till the bypass
+    is disabled. The interrupt priority has been flipped so that now the lowest
+    index input interrupt has the highest priority.
+
+Testbench - Added semaphore register and read only registers to observe irq
+    outputs of Xgate to testbench slave module. Added parameters to support new
+    Xgate registers and testbench registers. Added new test to checkout
+    bypass functionality and interrupt priority encoding.
+
+Doc - Updated with additions of IRQ Bypass registers.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 Apr 22,2010
 RTL - Fixed bug when entering DEBUG by command from the slave WISHBONE bus.
     All tests now pass when the RAM wait states are set from zero to four. Five
