@@ -99,17 +99,35 @@ module tst_bench_top();
   parameter XGMCTL_XGSWEIF  = 15'h0002;
   parameter XGMCTL_XGIE	    = 15'h0001;
 
-  parameter CHECK_POINT = 16'h8000;
-  parameter CHANNEL_ACK = CHECK_POINT + 2;
-  parameter CHANNEL_ERR = CHECK_POINT + 4;
+  parameter CHECK_POINT     = 16'h8000;
+  parameter CHANNEL_ACK     = CHECK_POINT + 2;
+  parameter CHANNEL_ERR     = CHECK_POINT + 4;
+  parameter TB_SEMPHORE     = CHECK_POINT + 10;
+  parameter CHANNEL_XGIRQ_0 = CHECK_POINT + 16;
+  parameter CHANNEL_XGIRQ_1 = CHECK_POINT + 18;
+  parameter CHANNEL_XGIRQ_2 = CHECK_POINT + 20;
+  parameter CHANNEL_XGIRQ_3 = CHECK_POINT + 22;
+  parameter CHANNEL_XGIRQ_4 = CHECK_POINT + 24;
+  parameter CHANNEL_XGIRQ_5 = CHECK_POINT + 26;
+  parameter CHANNEL_XGIRQ_6 = CHECK_POINT + 28;
+  parameter CHANNEL_XGIRQ_7 = CHECK_POINT + 30;
 
   parameter SYS_RAM_BASE = 24'h00_0000;
   
-  parameter RAM_WAIT_STATES = 0; // Number between 0 and 15
-  parameter SYS_READ_DELAY = 10;
+  parameter RAM_WAIT_STATES = 1; // Number between 0 and 15
+  parameter SYS_READ_DELAY  = 10;
   parameter XGATE_ACCESS_DELAY = SYS_READ_DELAY + RAM_WAIT_STATES;
   parameter XGATE_SS_DELAY = XGATE_ACCESS_DELAY + RAM_WAIT_STATES;
 
+  parameter IRQ_BASE	   = XGATE_BASE + 64;
+  parameter IRQ_BYPS_0	   = IRQ_BASE + 0;
+  parameter IRQ_BYPS_1	   = IRQ_BASE + 2;
+  parameter IRQ_BYPS_2	   = IRQ_BASE + 4;
+  parameter IRQ_BYPS_3	   = IRQ_BASE + 6;
+  parameter IRQ_BYPS_4	   = IRQ_BASE + 8;
+  parameter IRQ_BYPS_5	   = IRQ_BASE + 10;
+  parameter IRQ_BYPS_6	   = IRQ_BASE + 12;
+  parameter IRQ_BYPS_7	   = IRQ_BASE + 14;
 
   //
   // wires && regs
@@ -143,7 +161,7 @@ module tst_bench_top();
 
   wire [15:0] tb_slave_dout; // WISHBONE data bus output from testbench slave module
   wire	      error_pulse;   // Error detected output pulse from the testbench slave module
-  wire	      test_reg_ack;  // WISHBONE ack from testbench slave module
+  wire	      tb_slave_ack;  // WISHBONE ack from testbench slave module
   wire	      ack_pulse;     // Thread ack output pulse from testbench slave module
   
   wire        wbm_cyc_o;
@@ -280,12 +298,12 @@ module tst_bench_top();
     .adr( host_adr ),
     .dout( host_dout ),
     // inputs
-    .din(sys_din),
-    .clk(mstr_test_clk),
-    .ack(host_ack),
-    .rst(rstn),
-    .err(1'b0),
-    .rty(1'b0)
+    .din( sys_din ),
+    .clk( mstr_test_clk ),
+    .ack( host_ack ),
+    .rst( rstn ),
+    .err( 1'b0 ),
+    .rty( 1'b0 )
   );
 
   bus_arbitration  #(.dwidth(16),
@@ -293,9 +311,9 @@ module tst_bench_top();
 		     .ram_base(0),
 		     .ram_size(17'h10000),
 		     .slv1_base(XGATE_BASE),
-		     .slv1_size(64),
+		     .slv1_size(128),
 		     .slv2_base(CHECK_POINT),
-		     .slv2_size(8),
+		     .slv2_size(32),
 		     .ram_wait_states(RAM_WAIT_STATES)
 )
     arb(
@@ -333,7 +351,7 @@ module tst_bench_top();
     .slv1_din( xgate_s_dout ),
     // Slave #2 Bus I/O
     .slv2_stb( slv2_stb ),
-    .slv2_ack( test_reg_ack ),
+    .slv2_ack( tb_slave_ack ),
     .slv2_din( tb_slave_dout ),
     // Miscellaneous
     .host_clk( mstr_test_clk ),
@@ -345,13 +363,14 @@ module tst_bench_top();
 
   // hookup XGATE core - Parameters take all default values
   xgate_top  #(.SINGLE_CYCLE(1'b0),
+               .WB_RD_DEFAULT(1'b0),
 	       .MAX_CHANNEL(MAX_CHANNEL))    // Max XGATE Interrupt Channel Number
 	  xgate(
 	  // Wishbone slave interface
 	  .wbs_clk_i( mstr_test_clk ),
 	  .wbs_rst_i( 1'b0 ),	      // sync_reset
 	  .arst_i( rstn ),	      // async resetn
-	  .wbs_adr_i( sys_adr[5:1] ),
+	  .wbs_adr_i( sys_adr[6:1] ),
 	  .wbs_dat_i( sys_dout ),
 	  .wbs_dat_o( xgate_s_dout ),
 	  .wbs_we_i( sys_we ),
@@ -382,25 +401,27 @@ module tst_bench_top();
   );
 
   tb_slave #(.DWIDTH(16),
-	     .SINGLE_CYCLE(1'b1))
+	     .SINGLE_CYCLE(1'b1),
+	     .MAX_CHANNEL(MAX_CHANNEL))
 	  tb_slave_regs(
 	  // wishbone interface
 	  .wb_clk_i( mstr_test_clk ),
 	  .wb_rst_i( 1'b0 ),
 	  .arst_i( rstn ),
-	  .wb_adr_i( sys_adr[3:1] ),
+	  .wb_adr_i( sys_adr[4:1] ),
 	  .wb_dat_i( sys_dout ),
 	  .wb_dat_o( tb_slave_dout),
 	  .wb_we_i( sys_we ),
 	  .wb_stb_i( slv2_stb ),
 	  .wb_cyc_i( sys_cyc ),
 	  .wb_sel_i( sys_sel ),
-	  .wb_ack_o( test_reg_ack ),
+	  .wb_ack_o( tb_slave_ack ),
 
 	  .ack_pulse( ack_pulse ),
 	  .error_pulse( error_pulse ),
 	  .brk_pt(  ),
 	  .x_address( wbm_adr_o ),
+	  .xgif( xgif ),
 	  .vector( vector )
   );
 
@@ -441,8 +462,10 @@ initial
     test_chid_debug;
 
     reg_test_16;
+    
+    reg_irq;
 
-    //host_ram;
+    // host_ram;
 
     // End testing
     wrap_up;
@@ -455,6 +478,9 @@ task test_chid_debug;
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, test_chid_debug", test_num, vector);
     $readmemh("../../../bench/verilog/debug_test.v", p_ram.ram_8);
+
+    // Enable interrupts to RISC
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Enable interrupt on BRK instruction
@@ -522,22 +548,22 @@ task test_chid_debug;
 
     p_ram.dump_ram(0);
 
-    read_ram_cmp(16'h0000,16'h7b55);
-    read_ram_cmp(16'h0004,16'h7faa);
-    read_ram_cmp(16'h0006,16'h6f55);
-    read_ram_cmp(16'h0008,16'h00c3);
-    read_ram_cmp(16'h000a,16'h5f66);
-    read_ram_cmp(16'h000c,16'h0003);
-    read_ram_cmp(16'h0022,16'hccxx);
-    read_ram_cmp(16'h0026,16'hxx99);
-    read_ram_cmp(16'h0032,16'h1fcc);
-    read_ram_cmp(16'h0038,16'h2f99);
-    read_ram_cmp(16'h0042,16'h33xx);
-    read_ram_cmp(16'h0046,16'hxx55);
-    read_ram_cmp(16'h0052,16'hxx66);
-    read_ram_cmp(16'h0058,16'h99xx);
-    read_ram_cmp(16'h0062,16'h1faa);
-    read_ram_cmp(16'h0068,16'h2fcc);
+    read_ram_cmp(16'h0000, 16'h7b55);
+    read_ram_cmp(16'h0004, 16'h7faa);
+    read_ram_cmp(16'h0006, 16'h6f55);
+    read_ram_cmp(16'h0008, 16'h00c3);
+    read_ram_cmp(16'h000a, 16'h5f66);
+    read_ram_cmp(16'h000c, 16'h0003);
+    read_ram_cmp(16'h0022, 16'hccxx);
+    read_ram_cmp(16'h0026, 16'hxx99);
+    read_ram_cmp(16'h0032, 16'h1fcc);
+    read_ram_cmp(16'h0038, 16'h2f99);
+    read_ram_cmp(16'h0042, 16'h33xx);
+    read_ram_cmp(16'h0046, 16'hxx55);
+    read_ram_cmp(16'h0052, 16'hxx66);
+    read_ram_cmp(16'h0058, 16'h99xx);
+    read_ram_cmp(16'h0062, 16'h1faa);
+    read_ram_cmp(16'h0068, 16'h2fcc);
 
   end
 endtask
@@ -549,6 +575,9 @@ task test_debug_bit;
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, test_debug_bit", test_num, vector);
     $readmemh("../../../bench/verilog/debug_test.v", p_ram.ram_8);
+
+    // Enable interrupts to RISC
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Enable interrupt on BRK instruction
@@ -613,6 +642,9 @@ task test_debug_mode;
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, test_debug_mode", test_num, vector);
     $readmemh("../../../bench/verilog/debug_test.v", p_ram.ram_8);
+
+    // Enable interrupts to RISC
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Enable interrupt on BRK instruction
@@ -695,6 +727,9 @@ task test_inst_set;
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, test_inst_set", test_num, vector);
     repeat(1) @(posedge mstr_test_clk);
+    
+    // Enable interrupts to RISC
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
     activate_thread_sw(1);
     wait_irq_set(1);
@@ -965,6 +1000,122 @@ task reg_test_16;
     host.wb_cmp(0, XGATE_XGR6,    16'h7889, WORD);
     host.wb_cmp(0, XGATE_XGR7,    16'h6778, WORD);
 
+  end
+endtask
+
+////////////////////////////////////////////////////////////////////////////////
+// check register bits - reset, read/write
+task reg_irq;
+  begin
+    test_num = test_num + 1;
+    $display("\nTEST #%d Starts at vector=%d, reg_irq", test_num, vector);
+    $readmemh("../../../bench/verilog/irq_test.v", p_ram.ram_8);
+
+    system_reset;
+
+    host.wb_cmp(0, IRQ_BYPS_0,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_1,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_2,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_3,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_4,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_5,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_6,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_7,   16'hFFFF, WORD);	// verify reset
+
+
+    // Test the Xgate IRQ Bypass Registers (IRQ_BYPS)
+    host.wb_write(0, IRQ_BYPS_0,  16'hAAAA, WORD);
+    host.wb_cmp(0, IRQ_BYPS_0,    16'hAAAA, WORD);
+    host.wb_write(0, IRQ_BYPS_0,  16'h5555, WORD);
+    host.wb_cmp(0, IRQ_BYPS_0,    16'h5555, WORD);
+
+    host.wb_write(0, IRQ_BYPS_0,  16'hFF66, L_BYTE);
+    host.wb_cmp(0, IRQ_BYPS_0,    16'h5566, WORD);
+    host.wb_write(0, IRQ_BYPS_0,  16'h33FF, H_BYTE);
+    host.wb_cmp(0, IRQ_BYPS_0,    16'h3366, WORD);
+    host.wb_write(0, IRQ_BYPS_0,  16'hFFFF, H_BYTE);
+
+    channel_req[17] = 1'b1; //
+    repeat(4) @(posedge mstr_test_clk);
+    host.wb_cmp(0, CHANNEL_XGIRQ_1,    16'h0002, WORD);
+    channel_req[17] = 1'b0; //
+    repeat(4) @(posedge mstr_test_clk);
+    host.wb_cmp(0, CHANNEL_XGIRQ_1,    16'h0000, WORD);
+
+    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
+    data_xgmctl = XGMCTL_XGEM | XGMCTL_XGE;
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Enable XGATE
+    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+    channel_req[3:1] = 3'b111; //
+
+    q = 0;
+    // The Xgate test program is in an infinate loop for the test bench semaphore register to be changed
+    while (q == 0)  // Look for change in test bench semapore register
+      begin
+	host.wb_read(1, TB_SEMPHORE, q, WORD);
+      end
+      
+    if (q != 1)
+      begin
+	$display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
+      end
+    
+    channel_req[1] = 1'b0; //
+    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
+    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+
+//    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
+//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
+    host.wb_write(1, XGATE_XGIF_0, 16'h0002, WORD);  // Clear Interrupt Flag from Xgate
+//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
+    
+    q = 0;
+    // The Xgate test program is in an infinate loop for the test bench semaphore register to be changed
+    while (q == 0)  // Look for change in test bench semapore register
+      begin
+	host.wb_read(1, TB_SEMPHORE, q, WORD);
+      end
+      
+    if (q != 2)
+      begin
+	$display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
+      end
+    
+    channel_req[2] = 1'b0; //
+    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
+    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+    
+//    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
+//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
+    host.wb_write(1, XGATE_XGIF_0, 16'h0004, WORD);  // Clear Interrupt Flag from Xgate
+//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
+    
+    q = 0;
+    // The Xgate test program is in an infinate loop for the test bench semaphore register to be changed
+    while (q == 0)  // Look for change in test bench semapore register
+      begin
+	host.wb_read(1, TB_SEMPHORE, q, WORD);
+      end
+      
+    if (q != 3)
+      begin
+	$display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
+      end
+    
+    channel_req[3] = 1'b0; //
+    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
+    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+    
+//    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
+//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
+    host.wb_write(1, XGATE_XGIF_0, 16'h0008, WORD);  // Clear Interrupt Flag from Xgate
+//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
+    
   end
 endtask
 
@@ -1334,7 +1485,7 @@ module bus_arbitration	#(parameter dwidth = 16,
 
 
   // Create the System Read Data Bus from the Slave output data buses
-  assign sys_din = ({dwidth{slv1_stb}} & slv1_din) |
+  assign sys_din = ({dwidth{1'b1}} & slv1_din) |
 		   ({dwidth{slv2_stb}} & slv2_din) |
 		   ({dwidth{ram_sel}}  & ram_dout);
 
@@ -1385,6 +1536,7 @@ endmodule   // bus_arbitration
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
+		  parameter MAX_CHANNEL = 127,    // Max XGATE Interrupt Channel Number
 		  parameter DWIDTH = 16)	  // Data bus width
   (
   // Wishbone Signals
@@ -1393,7 +1545,7 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   input		      wb_clk_i,	    // master clock input
   input		      wb_rst_i,	    // synchronous active high reset
   input		      arst_i,	    // asynchronous reset
-  input		[2:0] wb_adr_i,	    // lower address bits
+  input		[3:0] wb_adr_i,	    // lower address bits
   input	 [DWIDTH-1:0] wb_dat_i,	    // databus input
   input		      wb_we_i,	    // write enable input
   input		      wb_stb_i,	    // stobe/core select signal
@@ -1403,7 +1555,8 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   output reg	      error_pulse,  // Error detected output pulse
   output reg	      ack_pulse,    // Thread ack output pulse
   output              brk_pt,       // Break point
-  input        [16:0] x_address,    // XGATE WISHBONE Master bus address
+  input        [15:0] x_address,    // XGATE WISHBONE Master bus address
+  input [MAX_CHANNEL:0] xgif,       // XGATE Interrupt Flag to Host
   input	       [19:0] vector
   );
 
@@ -1412,16 +1565,18 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
 
   // Wishbone Bus interface
   // registers
-  reg		     bus_wait_state;  // Holdoff wb_ack_o for one clock to add wait state
-  reg  [DWIDTH-1:0]  rd_data_mux;     // Pseudo Register, WISHBONE Read Data Mux
-  reg  [DWIDTH-1:0]  rd_data_reg;     // Latch for WISHBONE Read Data
+  reg		    bus_wait_state;  // Holdoff wb_ack_o for one clock to add wait state
+  reg  [DWIDTH-1:0] rd_data_mux;     // Pseudo Register, WISHBONE Read Data Mux
+  reg  [DWIDTH-1:0] rd_data_reg;     // Latch for WISHBONE Read Data
 
-  reg  [15:0] check_point_reg;
-  reg  [15:0] channel_ack_reg;
-  reg  [15:0] channel_err_reg;
+  reg  [DWIDTH-1:0] check_point_reg;
+  reg  [DWIDTH-1:0] channel_ack_reg;
+  reg  [DWIDTH-1:0] channel_err_reg;
 
-  reg  [15:0] brkpt_addr_reg;         // Break Point Address reg
-  reg  [15:0] brkpt_cntl_reg;         // Break Point Control reg
+  reg  [DWIDTH-1:0] brkpt_addr_reg;  // Break Point Address reg
+  reg  [DWIDTH-1:0] brkpt_cntl_reg;  // Break Point Control reg
+
+  reg  [DWIDTH-1:0] tb_semaphr_reg;  // Test bench semaphore reg
 
   event check_point_wrt;
   event channel_ack_wrt;
@@ -1464,12 +1619,21 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   // WISHBONE Read Data Mux
   always @*
     case (wb_adr_i) // synopsys parallel_case
-      3'b000: rd_data_mux = check_point_reg;
-      3'b001: rd_data_mux = channel_ack_reg;
-      3'b010: rd_data_mux = channel_err_reg;
-      3'b011: rd_data_mux = brkpt_cntl_reg;
-      3'b100: rd_data_mux = brkpt_addr_reg;
-      default: rd_data_mux = 16'b0;
+      4'b0000: rd_data_mux = check_point_reg;
+      4'b0001: rd_data_mux = channel_ack_reg;
+      4'b0010: rd_data_mux = channel_err_reg;
+      4'b0011: rd_data_mux = brkpt_cntl_reg;
+      4'b0100: rd_data_mux = brkpt_addr_reg;
+      4'b0101: rd_data_mux = tb_semaphr_reg;
+      4'b1000: rd_data_mux = xgif[15: 0];
+      4'b1001: rd_data_mux = xgif[31:16];
+      4'b1010: rd_data_mux = xgif[47:32];
+      4'b1011: rd_data_mux = xgif[63:48];
+      4'b1100: rd_data_mux = xgif[79:64];
+      4'b1101: rd_data_mux = xgif[95:80];
+      4'b1110: rd_data_mux = xgif[111:96];
+      4'b1111: rd_data_mux = xgif[127:112];
+      default: rd_data_mux = {DWIDTH{1'b0}};
     endcase
 
   // generate wishbone write register strobes
@@ -1482,6 +1646,9 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
 	  channel_err_reg <= 0;
 	  ack_pulse	  <= 0;
 	  error_pulse	  <= 0;
+	  brkpt_cntl_reg  <= 0;
+	  brkpt_addr_reg  <= 0;
+	  tb_semaphr_reg  <= 0;
 	end
       else if (wb_wacc)
 	case (wb_adr_i) // synopsys parallel_case
@@ -1514,6 +1681,11 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
 	     begin
 	       brkpt_addr_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : brkpt_addr_reg[ 7:0];
 	       brkpt_addr_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : brkpt_addr_reg[15:8];
+	     end
+	   3'b101 :
+	     begin
+	       tb_semaphr_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : tb_semaphr_reg[ 7:0];
+	       tb_semaphr_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : tb_semaphr_reg[15:8];
 	     end
 	   default: ;
 	endcase
