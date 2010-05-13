@@ -144,8 +144,8 @@ module tst_bench_top();
   reg	      por_reset_b;
   reg	      scantestmode;
 
-  reg  [MAX_CHANNEL:0] channel_req;  // XGATE Interrupt inputs
-  wire [MAX_CHANNEL:0] xgif;	     // XGATE Interrupt outputs
+  reg  [MAX_CHANNEL:1] channel_req;  // XGATE Interrupt inputs
+  wire [MAX_CHANNEL:1] xgif;	     // XGATE Interrupt outputs
   wire	       [  7:0] xgswt;	     // XGATE Software Trigger outputs
   wire		       xg_sw_irq;    // Xgate Software Error interrupt
 
@@ -394,7 +394,7 @@ module tst_bench_top();
 	  .xg_sw_irq( xg_sw_irq ),   // XGATE Software Error Interrupt Flag output
 	  .xgswt( xgswt ),
 	  .risc_clk( mstr_test_clk ),
-	  .chan_req_i( {channel_req[MAX_CHANNEL:40], xgswt, channel_req[31:0]} ),
+	  .chan_req_i( {channel_req[MAX_CHANNEL:40], xgswt, channel_req[31:1]} ),
           .debug_mode_i( 1'b0 ),
           .secure_mode_i( 1'b0 ),
 	  .scantestmode( scantestmode )
@@ -824,7 +824,7 @@ task reg_test_16;
     host.wb_cmp(0, XGATE_XGIF_3,   16'h0000, WORD);	// verify reset
     host.wb_cmp(0, XGATE_XGIF_2,   16'h0000, WORD);	// verify reset
     host.wb_cmp(0, XGATE_XGIF_1,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_0,   16'h0001, WORD);	// verify reset
+    host.wb_cmp(0, XGATE_XGIF_0,   16'h0000, WORD);	// verify reset
     host.wb_cmp(0, XGATE_XGSWT,    16'h0000, WORD);	// verify reset
     host.wb_cmp(0, XGATE_XGSEM,    16'h0000, WORD);	// verify reset
     host.wb_cmp(0, XGATE_XGCCR,    16'h0000, WORD);	// verify reset
@@ -1004,7 +1004,7 @@ task reg_test_16;
 endtask
 
 ////////////////////////////////////////////////////////////////////////////////
-// check register bits - reset, read/write
+// check irq register bits - reset, read/write
 task reg_irq;
   begin
     test_num = test_num + 1;
@@ -1013,7 +1013,7 @@ task reg_irq;
 
     system_reset;
 
-    host.wb_cmp(0, IRQ_BYPS_0,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_0,   16'hFFFE, WORD);	// verify reset
     host.wb_cmp(0, IRQ_BYPS_1,   16'hFFFF, WORD);	// verify reset
     host.wb_cmp(0, IRQ_BYPS_2,   16'hFFFF, WORD);	// verify reset
     host.wb_cmp(0, IRQ_BYPS_3,   16'hFFFF, WORD);	// verify reset
@@ -1027,7 +1027,7 @@ task reg_irq;
     host.wb_write(0, IRQ_BYPS_0,  16'hAAAA, WORD);
     host.wb_cmp(0, IRQ_BYPS_0,    16'hAAAA, WORD);
     host.wb_write(0, IRQ_BYPS_0,  16'h5555, WORD);
-    host.wb_cmp(0, IRQ_BYPS_0,    16'h5555, WORD);
+    host.wb_cmp(0, IRQ_BYPS_0,    16'h5554, WORD);
 
     host.wb_write(0, IRQ_BYPS_0,  16'hFF66, L_BYTE);
     host.wb_cmp(0, IRQ_BYPS_0,    16'h5566, WORD);
@@ -1556,7 +1556,7 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   output reg	      ack_pulse,    // Thread ack output pulse
   output              brk_pt,       // Break point
   input        [15:0] x_address,    // XGATE WISHBONE Master bus address
-  input [MAX_CHANNEL:0] xgif,       // XGATE Interrupt Flag to Host
+  input [MAX_CHANNEL:1] xgif,       // XGATE Interrupt Flag to Host
   input	       [19:0] vector
   );
 
@@ -1625,7 +1625,7 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
       4'b0011: rd_data_mux = brkpt_cntl_reg;
       4'b0100: rd_data_mux = brkpt_addr_reg;
       4'b0101: rd_data_mux = tb_semaphr_reg;
-      4'b1000: rd_data_mux = xgif[15: 0];
+      4'b1000: rd_data_mux = {xgif[15: 1], 1'b0};
       4'b1001: rd_data_mux = xgif[31:16];
       4'b1010: rd_data_mux = xgif[47:32];
       4'b1011: rd_data_mux = xgif[63:48];
