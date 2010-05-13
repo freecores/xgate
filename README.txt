@@ -3,6 +3,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+May 13,2010
+RTL - Code cleanup. Eliminated index [0] of "xgif" and "chan_req_i" output and
+    input pins along with assoicated status and and control registers. This
+    channel has never been usable.
+
+Testbench - Changes to match changes in RTL .
+
+Doc - No Change.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 May 12,2010
 RTL - Added new control registers for interrupt bypass function. Out of reset
     all input interrupts are bypassed directly to the Xgate interrupt outputs.
