@@ -57,7 +57,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   output reg                 carry_flag,
   output reg                 overflow_flag,
   output reg          [ 6:0] xgchid,
-  output reg         [127:0] xgif_status,   // XGATE Interrupt Flag
+  output reg         [127:1] xgif_status,   // XGATE Interrupt Flag
   output                     xg_sw_irq,     // Xgate Software interrupt
   output              [ 7:0] host_semap,    // Semaphore status for host
   output reg                 debug_active,  // Latch to control debug mode in the RISC state machine
@@ -184,7 +184,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         wrt_sel_xgr6;   // Pseudo Register,
   reg         wrt_sel_xgr7;   // Pseudo Register,
 
-  reg [127:0] xgif_d;
+  reg [127:1] xgif_d;
 
   reg  [15:0] shift_in;
   wire [15:0] shift_out;
@@ -450,14 +450,14 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   always @*
     begin
       xgif_d = 0;
-      j = 0;
-      while (j <= MAX_CHANNEL)
+      j = 1;
+      while (j <= MAX_CHANNEL)  // while loop sets irq bit and maintains previously set bits
         begin
          xgif_d[j]  = xgif_status[j] || (set_irq_flag == j);
          j = j + 1;
         end
       if (clear_xgif_0)
-	xgif_d[15: 0]  = ~clear_xgif_data & xgif_status[15: 0];
+	xgif_d[15: 1]  = ~clear_xgif_data & xgif_status[15: 1];
       if (clear_xgif_1)
 	xgif_d[31:16]  = ~clear_xgif_data & xgif_status[31:16];
       if (clear_xgif_2)

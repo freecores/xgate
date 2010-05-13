@@ -68,8 +68,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   // XGATE IO Signals
   output          [ 7:0] xgswt,         // XGATE Software Trigger Register
   output                 xg_sw_irq,        // Xgate Software interrupt
-  output [MAX_CHANNEL:0] xgif,             // XGATE Interrupt Flag to Host
-  input  [MAX_CHANNEL:0] chan_req_i,       // XGATE Interrupt request
+  output [MAX_CHANNEL:1] xgif,             // XGATE Interrupt Flag to Host
+  input  [MAX_CHANNEL:1] chan_req_i,       // XGATE Interrupt request
   input                  risc_clk,         // Clock for RISC core
   input                  debug_mode_i,     // Force RISC core into debug mode
   input                  secure_mode_i,    // Limit host asscess to Xgate RISC registers
@@ -130,7 +130,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        clear_xgif_1;    // Strobe for decode to clear interrupt flag bank 1
   wire        clear_xgif_0;    // Strobe for decode to clear interrupt flag bank 0
   wire [15:0] clear_xgif_data; // Data for decode to clear interrupt flag
-  wire [MAX_CHANNEL:0] chan_bypass; // XGATE Interrupt enable or bypass
+  wire [MAX_CHANNEL:1] chan_bypass; // XGATE Interrupt enable or bypass
 
   wire        xge;           // XGATE Module Enable
   wire        xgfrz;         // Stop XGATE in Freeze Mode
@@ -142,8 +142,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire        xgie;          // XGATE Interrupt Enable
   wire [ 6:0] int_req;       // Encoded interrupt request
   wire [ 6:0] xgchid;        // Channel actively being processed
-  wire [127:0] xgif_status;  // Status bits of interrupt output flags that have been set
-  wire [127:0] irq_bypass;   // IRQ status bits WISHBONE Read bus
+  wire [127:1] xgif_status;  // Status bits of interrupt output flags that have been set
+  wire [127:1] irq_bypass;   // IRQ status bits WISHBONE Read bus
 
   wire [15:1] xgvbr;         // XGATE vector Base Address Register
   wire        brk_irq_ena;   // Enable BRK instruction to generate interrupt
@@ -230,7 +230,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 		     16'b0,                // Reserved
 		     {8'h00, host_semap},  // XGSEM
 		     {8'h00, xgswt},       // XGSWT
-		     xgif_status[ 15:  0], // XGIF_0
+		     {xgif_status[ 15:  1], 1'b0}, // XGIF_0
 		     xgif_status[ 31: 16], // XGIF_1
 		     xgif_status[ 47: 32], // XGIF_2
 		     xgif_status[ 63: 48], // XGIF_3

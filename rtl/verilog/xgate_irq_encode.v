@@ -42,14 +42,14 @@
 module xgate_irq_encode #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Channel Number
 (
   output reg          [ 6:0] int_req,     // Encoded interrupt request to RISC
-  output     [MAX_CHANNEL:0] xgif,        // Interrupt outputs to Host
+  output     [MAX_CHANNEL:1] xgif,        // Interrupt outputs to Host
 
-  input      [MAX_CHANNEL:0] chan_req_i,  // XGATE Interrupt requests from peropherials
-  input      [MAX_CHANNEL:0] chan_bypass, // XGATE Interrupt bypass
-  input      [MAX_CHANNEL:0] xgif_status  // Interrupt outputs from RISC core
+  input      [MAX_CHANNEL:1] chan_req_i,  // XGATE Interrupt requests from peropherials
+  input      [MAX_CHANNEL:1] chan_bypass, // XGATE Interrupt bypass
+  input      [MAX_CHANNEL:1] xgif_status  // Interrupt outputs from RISC core
 );
 
-  wire [MAX_CHANNEL:0] chan_ena_gate;  // Ouptut of channel enable gating
+  wire [MAX_CHANNEL:1] chan_ena_gate;  // Ouptut of channel enable gating
 
   // Pass non-bypassed interrupt inputs to XGATE RISC
   assign chan_ena_gate = ~chan_bypass & chan_req_i;
@@ -59,7 +59,7 @@ module xgate_irq_encode #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt
   always @(chan_ena_gate)
     begin
       int_req = 0;
-        for (i = MAX_CHANNEL; i >= 0; i = i - 1)
+        for (i = MAX_CHANNEL; i >= 1; i = i - 1)
           if (chan_ena_gate[i] == 1'b1)
             int_req = i;
     end

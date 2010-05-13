@@ -92,7 +92,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   output                   async_rst_b,    //
   output                   sync_reset,     //
   input            [415:0] read_risc_regs, // status register bits for WISHBONE Read bus
-  input            [127:0] irq_bypass      // IRQ status bits WISHBONE Read bus
+  input            [127:1] irq_bypass      // IRQ status bits WISHBONE Read bus
   );
 
 
@@ -246,7 +246,7 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   always @*
       case ({wbs_racc, address}) // synopsys parallel_case
 	// 16 bit Bus, 16 bit Granularity
-	7'b110_0000: read_mux_irq = irq_bypass[ 15:  0];
+	7'b110_0000: read_mux_irq = {irq_bypass[ 15:  1], 1'b0};
 	7'b110_0001: read_mux_irq = irq_bypass[ 31: 16];
 	7'b110_0010: read_mux_irq = irq_bypass[ 47: 32];
 	7'b110_0011: read_mux_irq = irq_bypass[ 63: 48];

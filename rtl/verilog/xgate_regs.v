@@ -62,8 +62,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   output reg           [15:0] clear_xgif_data, // Data for decode to clear interrupt flag
   output                      semaph_stat,     // Return Status of Semaphore bit
   output reg                  brk_irq_ena,     // Enable BRK instruction to generate interrupt
-  output      [MAX_CHANNEL:0] chan_bypass,     // XGATE Interrupt enable or bypass
-  output reg          [127:0] irq_bypass,      // Register to hold irq bypass control state
+  output      [MAX_CHANNEL:1] chan_bypass,     // XGATE Interrupt enable or bypass
+  output reg          [127:1] irq_bypass,      // Register to hold irq bypass control state
 
   input                       bus_clk,       // Control register bus clock
   input                       async_rst_b,   // Async reset signal
@@ -96,7 +96,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   integer k;     // Loop counter for channel bypass counter assigments
 
   // registers
-  reg [127:0] irq_bypass_d; // Pseudo regester for routing address and data to irq bypass register
+  reg [127:1] irq_bypass_d; // Pseudo regester for routing address and data to irq bypass register
 
   // Wires
   wire [ 1:0] write_any_xgif;
@@ -228,8 +228,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   // Channel Bypass Register input bits
   always @*
     begin
-      k = 0;
-      for (j = 0; j <= 127; j = j + 1)
+      k = 1;   // WISHBONE Bus bit counter [15:0]
+      for (j = 1; j <= 127; j = j + 1)
 	begin
 	  if (j <= MAX_CHANNEL)
 	    begin
@@ -266,25 +266,24 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
 	      if ((j >= 120) && (j < 128))
 		irq_bypass_d[j] = write_irw_en_7[1] ? write_bus[k] : irq_bypass[j];
 	    end
-	    else
-	      irq_bypass_d[j]  = 1'b0;
-	    k = k + 1;
-	    if (k > 15)
-	      k = 0;
-	end
+	  else
+	    irq_bypass_d[j]  = 1'b0;
+	k = k + 1;
+	if (k > 15)
+	  k = 0;
+      end
     end
 
   //  Channel Bypass Registers
   //   Synthesys should eliminate bits that with D input tied to zero
   always @(posedge bus_clk or negedge async_rst_b)
     if ( !async_rst_b )
-      irq_bypass  <= {128{1'b1}};
+      irq_bypass  <= {127{1'b1}};
     else
       irq_bypass  <= irq_bypass_d;
 
   // Alias the register name to the output pin name so only the used bit are carried out
-  // assign chan_bypass = {(MAX_CHANNEL+1){1'b1}}; 
-  assign chan_bypass = irq_bypass[MAX_CHANNEL:0]; 
+  assign chan_bypass = irq_bypass[MAX_CHANNEL:1]; 
 
 endmodule  // xgate_regs
 
