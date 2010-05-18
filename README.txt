@@ -3,6 +3,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+May 18,2010
+RTL - Fixed xlink synthesis warnings noted by Nachiket Jugade,
+    missing else statment for chid_sm_ns line 393,
+    missing default on shifter lines 2382 (Although all cases are covered).
+
+Testbench - No Change.
+
+Doc - No Change.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 May 13,2010
 RTL - Code cleanup. Eliminated index [0] of "xgif" and "chan_req_i" output and
     input pins along with assoicated status and and control registers. This
@@ -41,7 +54,7 @@ RTL - Fixed bug when entering DEBUG by command from the slave WISHBONE bus.
     a simple register test otherwise I expect it would pass.
 
 Testbench - Many of the failures while testing wait states were due to fixed
-    delays coded in the testbench. As necessary delays were changed to be a
+    delays coded in the testbench. As necessary, delays were changed to be a
     function of a parameter that is based on the number of RAM wait states.
 
 Doc - No change.
@@ -54,7 +67,7 @@ Apr 5,2010
 RTL - First pass at fixing bug when entering DEBUG by command from the slave
     WISHBONE bus. All tests now pass when the RAM wait states are set to zero,
     although there are errors in DEBUG mode when RAM wait states are increased.
-   Icarus Verilog version 0.9.2 now supports the "generate" command. This is
+    Icarus Verilog version 0.9.2 now supports the "generate" command. This is
     now used to instantiate the semaphore registers.
 
 Testbench - Added capability to insert wait states on RAM access.
