@@ -390,6 +390,8 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       CHID_IDLE:
         if ( write_xgchid && debug_active )
           chid_sm_ns  = CHID_TEST;
+	else
+          chid_sm_ns  = CHID_IDLE;
       CHID_TEST:
         if ( !((cpu_state == IDLE) || (cpu_state == CHG_CHID)) && (|xgchid) )
           chid_sm_ns  = CHID_IDLE;
@@ -2376,6 +2378,11 @@ module xgate_barrel_shift (
         begin
           shift_out      = shift_filler[15: 0];
           shift_rollover = shift_in[ 0];
+        end
+      default :
+        begin
+          shift_out      =  shift_in;
+          shift_rollover  = 1'b0;
         end
     endcase
 
