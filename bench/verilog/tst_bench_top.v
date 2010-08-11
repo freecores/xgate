@@ -102,6 +102,7 @@ module tst_bench_top();
   parameter CHECK_POINT     = 16'h8000;
   parameter CHANNEL_ACK     = CHECK_POINT + 2;
   parameter CHANNEL_ERR     = CHECK_POINT + 4;
+  parameter DEBUG_CNTRL     = CHECK_POINT + 6;
   parameter TB_SEMPHORE     = CHECK_POINT + 10;
   parameter CHANNEL_XGIRQ_0 = CHECK_POINT + 16;
   parameter CHANNEL_XGIRQ_1 = CHECK_POINT + 18;
@@ -111,6 +112,15 @@ module tst_bench_top();
   parameter CHANNEL_XGIRQ_5 = CHECK_POINT + 26;
   parameter CHANNEL_XGIRQ_6 = CHECK_POINT + 28;
   parameter CHANNEL_XGIRQ_7 = CHECK_POINT + 30;
+
+  parameter BREAK_CAPT_0    = CHECK_POINT + 64;
+  parameter BREAK_CAPT_1    = CHECK_POINT + 66;
+  parameter BREAK_CAPT_2    = CHECK_POINT + 68;
+  parameter BREAK_CAPT_3    = CHECK_POINT + 70;
+  parameter BREAK_CAPT_4    = CHECK_POINT + 72;
+  parameter BREAK_CAPT_5    = CHECK_POINT + 74;
+  parameter BREAK_CAPT_6    = CHECK_POINT + 76;
+  parameter BREAK_CAPT_7    = CHECK_POINT + 78;
 
   parameter SYS_RAM_BASE = 24'h00_0000;
   
@@ -148,6 +158,7 @@ module tst_bench_top();
   wire [MAX_CHANNEL:1] xgif;	     // XGATE Interrupt outputs
   wire	       [  7:0] xgswt;	     // XGATE Software Trigger outputs
   wire		       xg_sw_irq;    // Xgate Software Error interrupt
+  wire	        [15:0] brkpt_cntl;   // 
 
 
   wire [15:0] wbm_dat_o;	 // WISHBONE Master Mode data output from XGATE
@@ -418,6 +429,7 @@ module tst_bench_top();
 	  .wb_ack_o( tb_slave_ack ),
 
 	  .ack_pulse( ack_pulse ),
+          .brkpt_cntl( brkpt_cntl ),
 	  .error_pulse( error_pulse ),
 	  .brk_pt(  ),
 	  .x_address( wbm_adr_o ),
@@ -425,6 +437,20 @@ module tst_bench_top();
 	  .vector( vector )
   );
 
+tb_debug #(.DWIDTH(16),	                 // Data bus width
+           .BREAK_CAPT_0(BREAK_CAPT_0),
+           .BREAK_CAPT_1(BREAK_CAPT_1),
+           .BREAK_CAPT_2(BREAK_CAPT_2),
+           .BREAK_CAPT_3(BREAK_CAPT_3),
+           .BREAK_CAPT_4(BREAK_CAPT_4),
+           .BREAK_CAPT_5(BREAK_CAPT_5),
+           .BREAK_CAPT_6(BREAK_CAPT_6),
+           .BREAK_CAPT_7(BREAK_CAPT_7))
+  debugger(
+	  .arst_i( rstn ),
+	  .risc_clk( mstr_test_clk ),
+          .brkpt_cntl( brkpt_cntl )
+  );
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -466,6 +492,8 @@ initial
     reg_irq;
 
     // host_ram;
+
+    // test_skipjack;
 
     // End testing
     wrap_up;
@@ -796,6 +824,37 @@ task test_inst_set;
     read_ram_cmp(16'h0026,16'hxx99);
     read_ram_cmp(16'h0052,16'hxx66);
     read_ram_cmp(16'h0058,16'h99xx);
+
+    data_xgmctl = 16'hff00;
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Disable XGATE
+
+  end
+endtask
+
+////////////////////////////////////////////////////////////////////////////////
+// Test SKIPJACK Application Program
+task test_skipjack;
+  begin
+    $readmemh("../../../bench/verilog/skipjack.v", p_ram.ram_8);
+    test_num = test_num + 1;
+    $display("\nTEST #%d Starts at vector=%d, test_skipjack", test_num, vector);
+    repeat(1) @(posedge mstr_test_clk);
+    
+    host.wb_write(0, DEBUG_CNTRL,  16'hFFFF, WORD);
+
+    // Enable interrupts to RISC
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
+
+    activate_thread_sw(2);
+    wait_irq_set(2);
+    host.wb_write(1, XGATE_XGIF_0, 16'h0002, WORD);
+
+
+    repeat(20) @(posedge mstr_test_clk);
+
+    p_ram.dump_ram(16'h2000);
+    // repeat(2) @(posedge mstr_test_clk);
+    // p_ram.dump_ram(16'h9000);
 
     data_xgmctl = 16'hff00;
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Disable XGATE
@@ -1552,8 +1611,10 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   input		      wb_cyc_i,	    // valid bus cycle input
   input		[1:0] wb_sel_i,	    // Select byte in word bus transaction
   // Slave unique IO Signals
-  output reg	      error_pulse,  // Error detected output pulse
-  output reg	      ack_pulse,    // Thread ack output pulse
+  output reg	          error_pulse,  // Error detected output pulse
+  output reg	          ack_pulse,    // Thread ack output pulse
+  output reg [DWIDTH-1:0] brkpt_cntl,   // Break Point Control reg
+
   output              brk_pt,       // Break point
   input        [15:0] x_address,    // XGATE WISHBONE Master bus address
   input [MAX_CHANNEL:1] xgif,       // XGATE Interrupt Flag to Host
@@ -1574,7 +1635,6 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   reg  [DWIDTH-1:0] channel_err_reg;
 
   reg  [DWIDTH-1:0] brkpt_addr_reg;  // Break Point Address reg
-  reg  [DWIDTH-1:0] brkpt_cntl_reg;  // Break Point Control reg
 
   reg  [DWIDTH-1:0] tb_semaphr_reg;  // Test bench semaphore reg
 
@@ -1622,7 +1682,7 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
       4'b0000: rd_data_mux = check_point_reg;
       4'b0001: rd_data_mux = channel_ack_reg;
       4'b0010: rd_data_mux = channel_err_reg;
-      4'b0011: rd_data_mux = brkpt_cntl_reg;
+      4'b0011: rd_data_mux = brkpt_cntl;
       4'b0100: rd_data_mux = brkpt_addr_reg;
       4'b0101: rd_data_mux = tb_semaphr_reg;
       4'b1000: rd_data_mux = {xgif[15: 1], 1'b0};
@@ -1646,7 +1706,7 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
 	  channel_err_reg <= 0;
 	  ack_pulse	  <= 0;
 	  error_pulse	  <= 0;
-	  brkpt_cntl_reg  <= 0;
+	  brkpt_cntl      <= 0;
 	  brkpt_addr_reg  <= 0;
 	  tb_semaphr_reg  <= 0;
 	end
@@ -1674,8 +1734,8 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
 	     end
 	   3'b011 :
 	     begin
-	       brkpt_cntl_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : brkpt_cntl_reg[ 7:0];
-	       brkpt_cntl_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : brkpt_cntl_reg[15:8];
+	       brkpt_cntl[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : brkpt_cntl[ 7:0];
+	       brkpt_cntl[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : brkpt_cntl[15:8];
 	     end
 	   3'b100 :
 	     begin
@@ -1710,4 +1770,114 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
 
 
 endmodule // tb_slave
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
+                  parameter BREAK_CAPT_0 = 0,
+                  parameter BREAK_CAPT_1 = 0,
+                  parameter BREAK_CAPT_2 = 0,
+                  parameter BREAK_CAPT_3 = 0,
+                  parameter BREAK_CAPT_4 = 0,
+                  parameter BREAK_CAPT_5 = 0,
+                  parameter BREAK_CAPT_6 = 0,
+                  parameter BREAK_CAPT_7 = 0
+		  )
+  (
+  // Wishbone Signals
+  input		      arst_i,	    // asynchronous reset
+  input               risc_clk,
+  input	 [DWIDTH-1:0] brkpt_cntl    // databus input
+  );
+
+  wire [15:0] next_pc = xgate.risc.program_counter;
+  wire [15:0] x1 = xgate.risc.xgr1;
+  wire [15:0] x2 = xgate.risc.xgr2;
+  wire [15:0] x3 = xgate.risc.xgr3;
+  wire [15:0] x4 = xgate.risc.xgr4;
+  wire [15:0] x5 = xgate.risc.xgr5;
+  wire [15:0] x6 = xgate.risc.xgr6;
+  wire [15:0] x7 = xgate.risc.xgr7;
+  
+  reg [15:0] cap_x1;
+  reg [15:0] cap_x2;
+  reg [15:0] cap_x3;
+  reg [15:0] cap_x4;
+  reg [15:0] cap_x5;
+  reg [15:0] cap_x6;
+  reg [15:0] cap_x7;
+  
+  reg [15:0] break_addr_0;
+  reg [15:0] break_addr_1;
+  reg [15:0] break_addr_2;
+  reg [15:0] break_addr_3;
+  reg [15:0] break_addr_4;
+  reg [15:0] break_addr_5;
+  reg [15:0] break_addr_6;
+  reg [15:0] break_addr_7;
+  
+  reg detect_addr;
+  
+  wire trigger, trigger0, trigger1, trigger3, trigger4, trigger5, trigger6, trigger7;
+  
+  initial
+    begin
+      break_addr_0 = 0;
+      break_addr_1 = 0;
+      break_addr_2 = 0;
+      break_addr_3 = 0;
+      break_addr_4 = 0;
+      break_addr_5 = 0;
+      break_addr_6 = 0;
+      break_addr_7 = 0;
+      repeat(4) @(posedge risc_clk); // Note: !! This should come after code load
+      break_addr_0 = {p_ram.ram_8[BREAK_CAPT_0], p_ram.ram_8[BREAK_CAPT_0+1]};
+      break_addr_1 = {p_ram.ram_8[BREAK_CAPT_1], p_ram.ram_8[BREAK_CAPT_1+1]};
+      break_addr_2 = {p_ram.ram_8[BREAK_CAPT_2], p_ram.ram_8[BREAK_CAPT_2+1]};
+      break_addr_3 = {p_ram.ram_8[BREAK_CAPT_3], p_ram.ram_8[BREAK_CAPT_3+1]};
+      break_addr_4 = {p_ram.ram_8[BREAK_CAPT_4], p_ram.ram_8[BREAK_CAPT_4+1]};
+      break_addr_5 = {p_ram.ram_8[BREAK_CAPT_5], p_ram.ram_8[BREAK_CAPT_5+1]};
+      break_addr_6 = {p_ram.ram_8[BREAK_CAPT_6], p_ram.ram_8[BREAK_CAPT_6+1]};
+      break_addr_7 = {p_ram.ram_8[BREAK_CAPT_7], p_ram.ram_8[BREAK_CAPT_7+1]};
+    end
+  
+  assign trigger0 = (next_pc === break_addr_0) && brkpt_cntl[ 8];
+  assign trigger1 = (next_pc === break_addr_1) && brkpt_cntl[ 9];
+  assign trigger2 = (next_pc === break_addr_2) && brkpt_cntl[10];
+  assign trigger3 = (next_pc === break_addr_3) && brkpt_cntl[11];
+  assign trigger4 = (next_pc === break_addr_4) && brkpt_cntl[12];
+  assign trigger5 = (next_pc === break_addr_5) && brkpt_cntl[13];
+  assign trigger6 = (next_pc === break_addr_6) && brkpt_cntl[14];
+  assign trigger7 = (next_pc === break_addr_7) && brkpt_cntl[15];
+  
+  assign trigger = brkpt_cntl[0] &
+                   (trigger0 | trigger1 | trigger2 | trigger3 | trigger4 | trigger5 | trigger6 | trigger7);
+  
+  always @(posedge risc_clk or negedge arst_i)
+    begin
+      if (!arst_i)
+	begin
+	  cap_x1 <= 0;
+	  cap_x2 <= 0;
+	  cap_x3 <= 0;
+	  cap_x4 <= 0;
+	  cap_x5 <= 0;
+	  cap_x6 <= 0;
+	  cap_x7 <= 0;
+	end
+      else if (trigger)
+	begin
+	  cap_x1 <= x1;
+	  cap_x2 <= x2;
+	  cap_x3 <= x3;
+	  cap_x4 <= x4;
+	  cap_x5 <= x5;
+	  cap_x6 <= x6;
+	  cap_x7 <= x7;
+	end
+    end
+
+
+endmodule // tb_debug
 
