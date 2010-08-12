@@ -32,6 +32,8 @@ Bob Hayes -- August 10, 2010
   although starting on a 256 byte boundary is convenient for debugging. The
   algorithm variables use 8 bit address offset calculations so care should be
   taken if the key is saved in a memory range that crosses an 8 bit addressing
-  boundary.
+  boundary. The G function is coded as a subroutine that is called twice, some
+  speed could be gained if this code is placed in-line at the expense of a
+  small increase in code size.
 
 
