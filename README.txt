@@ -3,6 +3,30 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+August 11,2010
+RTL - No Change
+
+Applications - Added the "application" directory to the "sw" directory. The
+    first application code added is the SKIPJACK encrypt/decrypt function. This
+    algorithm works on a 64 bit block of data and uses an 80 bit key. See the
+    "sw/applications/skipjack/README.txt" file for more information.
+
+Testbench - To aid in software development a simple debug module was added to
+    the testbench. The debugger loads watchpoint addresses stored in RAM after
+    the first RAM initialization. The debugger generates trigger signals that
+    can be watched in the waveform viewer and captures a copy of the CPU
+    registers at each trigger event. The watch point addresses are captured by
+    the assembler and stored in RAM addresses reserved for the test bench.
+    There are enable registers in the testbench that can enable or disable any
+    of the eight individual watchpoints under testbench control. 
+
+Doc - Made corrections to some of the example code in the detailed instruction
+    descriptions.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 June 10,2010
 RTL - No Change
 
@@ -141,7 +165,7 @@ Updates to User Guide -- Minor corrections to instruction set details. Needs mor
 Jan 11,2010
 RTL - 85% done -- Fix error in Zero Flag calculation for ADC and SBC instructions
   Fix Error in loading R2 durning cpu_state == BOOT_3.
-  THere is a bug in DEBUG mode that is sensitive to number of preceding
+  There is a bug in DEBUG mode that is sensitive to number of preceding
    instructions and wait states that needs to be resolved.
 
 Updates to testbench -- 
