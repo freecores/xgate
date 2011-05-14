@@ -46,6 +46,9 @@ module tst_bench_top();
   parameter MAX_CHANNEL = 127;	  // Max XGATE Interrupt Channel Number
   parameter STOP_ON_ERROR = 1'b0;
   parameter MAX_VECTOR = 9000;
+  
+  parameter IR_BITS = 4;     // Number of bits in JTAG instruction
+  parameter JTAG_PERIOD = 4; // JTAG Test clock half period
 
   parameter L_BYTE = 2'b01;
   parameter H_BYTE = 2'b10;
@@ -153,6 +156,13 @@ module tst_bench_top();
   reg	      sync_reset;
   reg	      por_reset_b;
   reg	      scantestmode;
+  
+  reg         jtag_tck;
+  reg         jtag_tdi;
+  reg         jtag_tms;
+  
+  wire        jtag_tdo;
+  wire        jtag_tdo_en;
 
   reg  [MAX_CHANNEL:1] channel_req;  // XGATE Interrupt inputs
   wire [MAX_CHANNEL:1] xgif;	     // XGATE Interrupt outputs
@@ -232,6 +242,10 @@ module tst_bench_top();
       scantestmode = 0;
       error_count = 0;
       mem_wait_state_enable = 0;
+      jtag_tck = 0;
+      jtag_tdi = 0;
+      jtag_tms = 1;
+
       // channel_req = 0;
 
       `ifdef WAVES
@@ -410,6 +424,18 @@ module tst_bench_top();
           .secure_mode_i( 1'b0 ),
 	  .scantestmode( scantestmode )
   );
+  
+  xgate_jtag #(.IR_BITS(IR_BITS))
+  jtag(
+  .jtag_tdo( jtag_tdo ),
+  .jtag_tdo_en( jtag_tdo_en ),
+
+  .jtag_tdi( jtag_tdi ),
+  .jtag_clk( jtag_tck ),
+  .jtag_reset_n( rstn ),
+  .jtag_tms( jtag_tms )
+  );
+
 
   tb_slave #(.DWIDTH(16),
 	     .SINGLE_CYCLE(1'b1),
@@ -497,6 +523,27 @@ initial
 
     // End testing
     wrap_up;
+  end
+
+// Main JTAG Test Program
+initial
+  begin
+    $display("\nstatus at time: %t Testbench started", $time);
+  //              tms, tdi
+    send_jtag_bit(1,0);  // RUN/TEST/IDLE
+    send_jtag_bit(0,1);  // SEL DR
+    send_jtag_bit(1,1);  // SEL IR
+    send_jtag_bit(1,1);  // Capture IR
+    send_jtag_bit(0,1);  // Dead Bit?
+    send_jtag_bit(0,1);  // LSB
+    send_jtag_bit(0,0);  // Bit 1
+    send_jtag_bit(0,1);  // Bit 2
+    send_jtag_bit(0,0);  // Bit 3
+    send_jtag_bit(1,1);  // EXIT1 IR
+    send_jtag_bit(1,1);  // UPDATE IR
+    send_jtag_bit(0,1);  // RUN/TEST/IDLE    
+    send_jtag_bit(0,1);  // RUN/TEST/IDLE    
+
   end
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1334,6 +1381,22 @@ task wrap_up;
       $display("Simulation Failed  --- Errors =%d", error_count);
 
     $finish;
+  end
+endtask
+
+////////////////////////////////////////////////////////////////////////////////
+task send_jtag_bit;
+  input tms_val;
+  input tdi_val;
+  begin
+	jtag_tck = 0;
+        repeat(JTAG_PERIOD) @(posedge mstr_test_clk);
+	jtag_tck = 1;
+	#1;
+	jtag_tms = tms_val;
+	jtag_tdi = tdi_val;
+        repeat(JTAG_PERIOD) @(posedge mstr_test_clk);
+	jtag_tck = 0;
   end
 endtask
 
