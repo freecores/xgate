@@ -49,7 +49,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   output reg [15:0] xgr7,
   output     [15:0] xgate_address,
   output     [15:0] write_mem_data,   // Data for Memory write
-  output            mem_access,       // 
+  output            mem_access,       //
   output            write_mem_strb_l, // Strobe for writing low data byte
   output            write_mem_strb_h, // Strobe for writing high data bye
   output reg                 zero_flag,
@@ -205,7 +205,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg         debug_edge;    // Reg for edge detection
 
   reg         cmd_dbg;
- 
+
   reg  [ 1:0] chid_sm_ns;    // Pseudo Register for State Machine next state logic,
   reg  [ 1:0] chid_sm;       //
   wire        chid_goto_idle; //
@@ -215,13 +215,13 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
                   CHID_TEST = 2'b10,
                   CHID_WAIT = 2'b11;
 
-	
+
   assign jump_offset = {{6{op_code[8]}}, op_code[8:0], 1'b0};
   assign bra_offset  = {{5{op_code[9]}}, op_code[9:0], 1'b0};
   assign pc_sum      = program_counter + pc_incr_mux;
 
   assign xgate_address = data_access ? data_address : program_counter;
-  
+
   //assign mem_access = data_access || load_next_inst || start_thread;
   assign mem_access = data_access || load_next_inst || (cpu_state == CONT) ||
                      (cpu_state == BREAK_2)  || start_thread;
@@ -326,9 +326,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     else
       begin
         cmd_dbg  <= !((cpu_state == LD_INST) || (cpu_state == DEBUG)) &&
-	             (cmd_dbg || (xgdbg_set && mem_req_ack && (next_cpu_state == CONT)));
+               (cmd_dbg || (xgdbg_set && mem_req_ack && (next_cpu_state == CONT)));
       end
-      
+
   //  Latch the debug state, set by eather xgdb or BRK instructions
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
@@ -342,7 +342,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
                          brk_set_dbg || op_code_error || debug_active);
         debug_edge    <= debug_active;
       end
-      
+
   assign debug_ack = debug_active && !debug_edge; // Posedge of debug_active
 
   //  Convert xgss (Single Step Pulse) to a one risc_clk wide pulse
@@ -390,7 +390,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       CHID_IDLE:
         if ( write_xgchid && debug_active )
           chid_sm_ns  = CHID_TEST;
-	else
+        else
           chid_sm_ns  = CHID_IDLE;
       CHID_TEST:
         if ( !((cpu_state == IDLE) || (cpu_state == CHG_CHID)) && (|xgchid) )
@@ -404,7 +404,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
           chid_sm_ns  = CHID_WAIT;
       default : chid_sm_ns  = CHID_IDLE;
     endcase
-    
+
   assign chid_goto_idle = (chid_sm == CHID_WAIT);
 
   //  CPU Read Data Buffer Register
@@ -459,21 +459,21 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          j = j + 1;
         end
       if (clear_xgif_0)
-	xgif_d[15: 1]  = ~clear_xgif_data & xgif_status[15: 1];
+        xgif_d[15: 1]  = ~clear_xgif_data & xgif_status[15: 1];
       if (clear_xgif_1)
-	xgif_d[31:16]  = ~clear_xgif_data & xgif_status[31:16];
+        xgif_d[31:16]  = ~clear_xgif_data & xgif_status[31:16];
       if (clear_xgif_2)
-	xgif_d[47:32]  = ~clear_xgif_data & xgif_status[47:32];
+        xgif_d[47:32]  = ~clear_xgif_data & xgif_status[47:32];
       if (clear_xgif_3)
-	xgif_d[63:48]  = ~clear_xgif_data & xgif_status[63:48];
+        xgif_d[63:48]  = ~clear_xgif_data & xgif_status[63:48];
       if (clear_xgif_4)
-	xgif_d[79:64]  = ~clear_xgif_data & xgif_status[79:64];
+        xgif_d[79:64]  = ~clear_xgif_data & xgif_status[79:64];
       if (clear_xgif_5)
-	xgif_d[95:80]  = ~clear_xgif_data & xgif_status[95:80];
+        xgif_d[95:80]  = ~clear_xgif_data & xgif_status[95:80];
       if (clear_xgif_6)
-	xgif_d[111:96]  = ~clear_xgif_data & xgif_status[111:96];
+        xgif_d[111:96]  = ~clear_xgif_data & xgif_status[111:96];
       if (clear_xgif_7)
-	xgif_d[127:112] = ~clear_xgif_data & xgif_status[127:112];
+        xgif_d[127:112] = ~clear_xgif_data & xgif_status[127:112];
     end
 
   //  Interrupt Flag Registers
@@ -498,53 +498,53 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       end
     else
       begin
-        xgr1 <= (|write_xgr1 && perif_wrt_ena) ? 
-		{(write_xgr1[1] ? perif_data[15:8]: xgr1[15:8]),
+        xgr1 <= (|write_xgr1 && perif_wrt_ena) ?
+                {(write_xgr1[1] ? perif_data[15:8]: xgr1[15:8]),
                  (write_xgr1[0] ? perif_data[ 7:0]: xgr1[ 7:0])} :
                 {((wrt_sel_xgr1 && ena_rd_high_byte) ? alu_result[15:8] : xgr1[15:8]),
                  ((wrt_sel_xgr1 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr1[ 7:0])};
-        xgr2 <= (|write_xgr2 && perif_wrt_ena) ? 
-		{(write_xgr2[1] ? perif_data[15:8]: xgr2[15:8]),
+        xgr2 <= (|write_xgr2 && perif_wrt_ena) ?
+                {(write_xgr2[1] ? perif_data[15:8]: xgr2[15:8]),
                  (write_xgr2[0] ? perif_data[ 7:0]: xgr2[ 7:0])} :
                 {((wrt_sel_xgr2 && ena_rd_high_byte) ? alu_result[15:8] : xgr2[15:8]),
                  ((wrt_sel_xgr2 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr2[ 7:0])};
-        xgr3 <= (|write_xgr3 && perif_wrt_ena) ? 
-		{(write_xgr3[1] ? perif_data[15:8]: xgr3[15:8]),
+        xgr3 <= (|write_xgr3 && perif_wrt_ena) ?
+                {(write_xgr3[1] ? perif_data[15:8]: xgr3[15:8]),
                  (write_xgr3[0] ? perif_data[ 7:0]: xgr3[ 7:0])} :
                 {((wrt_sel_xgr3 && ena_rd_high_byte) ? alu_result[15:8] : xgr3[15:8]),
                  ((wrt_sel_xgr3 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr3[ 7:0])};
-        xgr4 <= (|write_xgr4 && perif_wrt_ena) ? 
-		{(write_xgr4[1] ? perif_data[15:8]: xgr4[15:8]),
+        xgr4 <= (|write_xgr4 && perif_wrt_ena) ?
+                {(write_xgr4[1] ? perif_data[15:8]: xgr4[15:8]),
                  (write_xgr4[0] ? perif_data[ 7:0]: xgr4[ 7:0])} :
                 {((wrt_sel_xgr4 && ena_rd_high_byte) ? alu_result[15:8] : xgr4[15:8]),
                  ((wrt_sel_xgr4 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr4[ 7:0])};
-        xgr5 <= (|write_xgr5 && perif_wrt_ena) ? 
-		{(write_xgr5[1] ? perif_data[15:8]: xgr5[15:8]),
+        xgr5 <= (|write_xgr5 && perif_wrt_ena) ?
+                {(write_xgr5[1] ? perif_data[15:8]: xgr5[15:8]),
                  (write_xgr5[0] ? perif_data[ 7:0]: xgr5[ 7:0])} :
                 {((wrt_sel_xgr5 && ena_rd_high_byte) ? alu_result[15:8] : xgr5[15:8]),
                  ((wrt_sel_xgr5 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr5[ 7:0])};
-        xgr6 <= (|write_xgr6 && perif_wrt_ena) ? 
-		{(write_xgr6[1] ? perif_data[15:8]: xgr6[15:8]),
+        xgr6 <= (|write_xgr6 && perif_wrt_ena) ?
+                {(write_xgr6[1] ? perif_data[15:8]: xgr6[15:8]),
                  (write_xgr6[0] ? perif_data[ 7:0]: xgr6[ 7:0])} :
                 {((wrt_sel_xgr6 && ena_rd_high_byte) ? alu_result[15:8] : xgr6[15:8]),
                  ((wrt_sel_xgr6 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr6[ 7:0])};
-        xgr7 <= (|write_xgr7 && perif_wrt_ena) ? 
-		{(write_xgr7[1] ? perif_data[15:8]: xgr7[15:8]),
+        xgr7 <= (|write_xgr7 && perif_wrt_ena) ?
+                {(write_xgr7[1] ? perif_data[15:8]: xgr7[15:8]),
                  (write_xgr7[0] ? perif_data[ 7:0]: xgr7[ 7:0])} :
                 {((wrt_sel_xgr7 && ena_rd_high_byte) ? alu_result[15:8] : xgr7[15:8]),
                  ((wrt_sel_xgr7 && ena_rd_low_byte)  ? alu_result[ 7:0] : xgr7[ 7:0])};
       end
 
-  // V Ñ Vector fetch: always an aligned word read, lasts for at least one RISC core cycle
-  // P Ñ Program word fetch: always an aligned word read, lasts for at least one RISC core cycle
-  // r Ñ 8-bit data read: lasts for at least one RISC core cycle
-  // R Ñ 16-bit data read: lasts for at least one RISC core cycle
-  // w Ñ 8-bit data write: lasts for at least one RISC core cycle
-  // W Ñ 16-bit data write: lasts for at least one RISC core cycle
-  // A Ñ Alignment cycle: no read or write, lasts for zero or one RISC core cycles
-  // f Ñ Free cycle: no read or write, lasts for one RISC core cycles
+  // V - Vector fetch: always an aligned word read, lasts for at least one RISC core cycle
+  // P - Program word fetch: always an aligned word read, lasts for at least one RISC core cycle
+  // r - 8-bit data read: lasts for at least one RISC core cycle
+  // R - 16-bit data read: lasts for at least one RISC core cycle
+  // w - 8-bit data write: lasts for at least one RISC core cycle
+  // W - 16-bit data write: lasts for at least one RISC core cycle
+  // A - Alignment cycle: no read or write, lasts for zero or one RISC core cycles
+  // f - Free cycle: no read or write, lasts for one RISC core cycles
   // Special Cases
-  // PP/P Ñ Branch: PP if branch taken, P if not taken
+  // PP/P - Branch: PP if branch taken, P if not taken
 
   always @*
     begin
@@ -579,9 +579,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       set_irq_flag   = 7'b0;
 
-      set_semaph    = 1'b0;
-      clear_semaph  = 1'b0;
-      semaph_risc   = 3'b0;
+      set_semaph     = 1'b0;
+      clear_semaph   = 1'b0;
+      semaph_risc    = 3'b0;
 
   casez ({cpu_state, op_code})
 
@@ -595,12 +595,12 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       {CHG_CHID, 16'b????????????????} :
          begin
-	   if (!xge)
+           if (!xge)
              next_cpu_state = IDLE;
-	   else if (ss_mem_ack || !debug_active)
+           else if (ss_mem_ack || !debug_active)
              next_cpu_state = BOOT_1;
-	   else
-             next_cpu_state = CHG_CHID;	     
+           else
+             next_cpu_state = CHG_CHID;
 
            pc_incr_mux      = 16'h0000;
            next_pc          = pc_sum;
@@ -644,14 +644,14 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       {BREAK, 16'b????????????????} :
          begin
-	   if (!xge)
-             next_cpu_state = IDLE;
-	   else if (ss_mem_ack || !debug_active)
-             next_cpu_state = BREAK_2;
-	   else if (chid_goto_idle)
-             next_cpu_state = CHG_CHID;
-	   else
-             next_cpu_state = BREAK;	     
+           if (!xge)
+                   next_cpu_state = IDLE;
+           else if (ss_mem_ack || !debug_active)
+                   next_cpu_state = BREAK_2;
+           else if (chid_goto_idle)
+                   next_cpu_state = CHG_CHID;
+           else
+                   next_cpu_state = BREAK;
            load_next_inst = 1'b0;
            pc_incr_mux    = 16'h0000;
            next_pc        = pc_sum;
@@ -672,16 +672,16 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
       {DEBUG, 16'b????????????????} :
          begin
-	   if (!xge)
-             next_cpu_state = IDLE;
-	   else if (ss_mem_ack || !debug_active)
-             next_cpu_state = CONT;
-	   else if (cmd_change_pc)
-             next_cpu_state = LD_INST;
-	   else if (chid_goto_idle)
-             next_cpu_state = CHG_CHID;
-	   else
-             next_cpu_state = DEBUG;	     
+           if (!xge)
+                   next_cpu_state = IDLE;
+           else if (ss_mem_ack || !debug_active)
+                   next_cpu_state = CONT;
+           else if (cmd_change_pc)
+                   next_cpu_state = LD_INST;
+           else if (chid_goto_idle)
+                   next_cpu_state = CHG_CHID;
+           else
+                   next_cpu_state = DEBUG;
 
            load_next_inst = cmd_change_pc;
            pc_incr_mux    = 16'h0000;
@@ -784,7 +784,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            set_semaph  = 1'b1;
            semaph_risc = op_code[10:8];
 
-           next_carry    = semaph_stat;
+           next_carry  = semaph_stat;
          end
 
       // Instruction = SSEM RS, Op Code =  0 0 0 0 0 RS 1 1 1 1 0 0 1 1
@@ -798,7 +798,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
            set_semaph  = 1'b1;
            semaph_risc = rd_data[2:0];
 
-           next_carry    = semaph_stat;
+           next_carry  = semaph_stat;
          end
 
       // -----------------------------------------------------------------------
@@ -850,9 +850,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // contained in RS[6:0] is set. The content of RS[15:7] is ignored
       // Cycles - P
       {CONT, 16'b00000???11110111} :
-         begin
-           set_irq_flag = rd_data[6:0];
-         end
+         set_irq_flag = rd_data[6:0];
 
       // -----------------------------------------------------------------------
       // Instruction Group -- Special Move instructions
@@ -1309,210 +1307,182 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       // If C = 0, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010000?????????} :
-         begin
-           if (!carry_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;  // There is a race condition when the default declaration is used
-             end
-         end
+         if (!carry_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;  // There is a race condition when the default declaration is used
+           end
 
       // Instruction = BCS REL9, Op Code =  0 0 1 0 0 0 1 REL9
       // Branch if Carry Set
       // If C = 1, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010001?????????} :
-         begin
-           if (carry_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (carry_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BNE REL9, Op Code =  0 0 1 0 0 1 0 REL9
       // Branch if Not Equal
       // If Z = 0, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010010?????????} :
-         begin
-           if (!zero_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (!zero_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BEQ REL9, Op Code =  0 0 1 0 0 1 1 REL9
       // Branch if Equal
       // If Z = 1, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010011?????????} :
-         begin
-           if (zero_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (zero_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BPL REL9, Op Code =  0 0 1 0 1 0 0 REL9
       // Branch if Plus
       // If N = 0, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010100?????????} :
-         begin
-           if (!negative_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (!negative_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BMI REL9, Op Code =  0 0 1 0 1 0 1 REL9
       // Branch if Minus
       // If N = 1, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010101?????????} :
-         begin
-           if (negative_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (negative_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BVC REL9, Op Code =  0 0 1 0 1 1 0 REL9
       // Branch if Overflow Cleared
       // If V = 0, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010110?????????} :
-         begin
-           if (!overflow_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (!overflow_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BVS REL9, Op Code =  0 0 1 0 1 1 1 REL9
       // Branch if Overflow Set
       // If V = 1, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0010111?????????} :
-         begin
-           if (overflow_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (overflow_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BHI REL9, Op Code =  0 0 1 1 0 0 0 REL9
       // Branch if Higher
       // If C | Z = 0, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0011000?????????} :
-         begin
-           if (!(carry_flag || zero_flag))
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (!(carry_flag || zero_flag))
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BLS REL9, Op Code =  0 0 1 1 0 0 1 REL9
       // Branch if Lower or Same
       // If C | Z = 1, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0011001?????????} :
-         begin
-           if (carry_flag || zero_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (carry_flag || zero_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BGE REL9, Op Code =  0 0 1 1 0 1 0 REL9
       // Branch if Greater than or Equal to Zero
       // If N ^ V = 0, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0011010?????????} :
-         begin
-           if (!(negative_flag ^ overflow_flag))
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (!(negative_flag ^ overflow_flag))
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BLT REL9, Op Code =  0 0 1 1 0 1 1 REL9
       // Branch if Lower than Zero
       // If N ^ V = 1, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0011011?????????} :
-         begin
-           if (negative_flag ^ overflow_flag)
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (negative_flag ^ overflow_flag)
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BGT REL9, Op Code =  0 0 1 1 1 0 0 REL9
       // Branch if Greater than Zero
       // If Z | (N ^ V) = 0, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0011100?????????} :
-         begin
-           if (!(zero_flag || (negative_flag ^ overflow_flag)))
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (!(zero_flag || (negative_flag ^ overflow_flag)))
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BLE REL9, Op Code =  0 0 1 1 1 0 1 REL9
       // Branch if Less or Equal to Zero
       // If Z | (N ^ V) = 1, then PC + $0002 + (REL9 << 1) => PC
       // Cycles - PP/P
       {CONT, 16'b0011101?????????} :
-         begin
-           if (zero_flag || (negative_flag ^ overflow_flag))
-             begin
-               next_cpu_state = S_STALL;
-               load_next_inst = 1'b0;
-               pc_incr_mux    = jump_offset;
-               next_pc        = pc_sum;
-             end
-         end
+         if (zero_flag || (negative_flag ^ overflow_flag))
+           begin
+             next_cpu_state = S_STALL;
+             load_next_inst = 1'b0;
+             pc_incr_mux    = jump_offset;
+             next_pc        = pc_sum;
+           end
 
       // Instruction = BRA REL10, Op Code =  0 0 1 1 1 1 REL10
       // Branch Always, signed offset
@@ -2126,9 +2096,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          end
       default :
         begin
-	  // synopsys translate_off
+          // synopsys translate_off
           $display("\nOP Code Error\n");
-	  // synopsys translate_on
+          // synopsys translate_on
           next_cpu_state   = DEBUG;
           pc_incr_mux      = 16'h0000;
           next_pc          = pc_sum;
@@ -2136,7 +2106,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
           op_code_error    = 1'b1;
         end
     endcase
-    
+
     end  // always
 
   xgate_barrel_shift barrel_shift(
@@ -2170,20 +2140,20 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   generate
     for (sem_gen_count = 0; sem_gen_count < 8; sem_gen_count = sem_gen_count + 1)
       begin:semaphore_
-	semaphore_bit bit(
-	  // outputs
-	  .host_status( host_semap[sem_gen_count] ),
-	  .risc_status( risc_semap[sem_gen_count] ),
-	  // inputs
-	  .risc_clk( risc_clk ),
-	  .async_rst_b( async_rst_b ),
-	  .risc_bit_sel( semap_risc_bit[sem_gen_count] ),
-	  .csem( clear_semaph ),
-	  .ssem( set_semaph ),
-	  .host_wrt( write_xgsem ),
-	  .host_bit_mask( perif_data[sem_gen_count+8] ),
-	  .host_bit( perif_data[sem_gen_count] )
-	);
+        semaphore_bit sbit(
+          // outputs
+          .host_status( host_semap[sem_gen_count] ),
+          .risc_status( risc_semap[sem_gen_count] ),
+          // inputs
+          .risc_clk( risc_clk ),
+          .async_rst_b( async_rst_b ),
+          .risc_bit_sel( semap_risc_bit[sem_gen_count] ),
+          .csem( clear_semaph ),
+          .ssem( set_semaph ),
+          .host_wrt( write_xgsem ),
+          .host_bit_mask( perif_data[sem_gen_count+8] ),
+          .host_bit( perif_data[sem_gen_count] )
+        );
       end
   endgenerate
 

@@ -39,9 +39,10 @@
 // 45678901234567890123456789012345678901234567890123456789012345678901234567890
 
 module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
-                   parameter SINGLE_CYCLE = 1'b0,  // 
-		   parameter MAX_CHANNEL = 127,    // Max XGATE Interrupt Channel Number
-		   parameter WB_RD_DEFAULT = 0)    // WISHBONE Read Bus default state
+                   parameter DWIDTH   = 16,        // define the wishbone bus data size
+                   parameter SINGLE_CYCLE = 1'b0,  //
+                   parameter MAX_CHANNEL  = 127,   // Max XGATE Interrupt Channel Number
+                   parameter WB_RD_DEFAULT = 0)    // WISHBONE Read Bus default state
   (
   // Wishbone Slave Signals
   output    [DWIDTH-1:0] wbs_dat_o,     // databus output
@@ -76,7 +77,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   input                  scantestmode      // Chip in in scan test mode
   );
 
-  parameter DWIDTH = 16;     // Data bus width
 
   wire        zero_flag;
   wire        negative_flag;
@@ -147,27 +147,27 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
 
   wire [15:1] xgvbr;         // XGATE vector Base Address Register
   wire        brk_irq_ena;   // Enable BRK instruction to generate interrupt
-  
+
   wire [15:0] xgate_address;   //
   wire [15:0] write_mem_data;  //
   wire [15:0] read_mem_data;   //
   wire        mem_access;      //
   wire        mem_req_ack;     //
 
-  wire        debug_active;    // RISC state machine in Debug mode 
+  wire        debug_active;    // RISC state machine in Debug mode
   wire        debug_ack;       // Clear debug register
   wire        single_step;     // Pulse to trigger a single instruction execution in debug mode
   wire        ss_mem_ack;      // WISHBONE Bus has granted single step memory access
-  
+
   wire [ 7:0] host_semap;       // Semaphore status for host
   wire        write_mem_strb_l; // Strobe for writing low data byte
   wire        write_mem_strb_h; // Strobe for writing high data bye
-  
+
   // ---------------------------------------------------------------------------
   // Wishbone Slave Bus interface
   xgate_wbs_bus #(.ARST_LVL(ARST_LVL),
                   .SINGLE_CYCLE(SINGLE_CYCLE),
-		  .WB_RD_DEFAULT(WB_RD_DEFAULT))
+                  .WB_RD_DEFAULT(WB_RD_DEFAULT))
     wishbone_s(
     .wbs_dat_o( wbs_dat_o ),
     .wbs_ack_o( wbs_ack_o ),
@@ -181,7 +181,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .wbs_stb_i( wbs_stb_i ),
     .wbs_cyc_i( wbs_cyc_i ),
     .wbs_sel_i( wbs_sel_i ),
-    
+
     // outputs
     .sync_reset( sync_reset ),
     .write_xgmctl( write_xgmctl ),
@@ -214,37 +214,37 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .write_irw_en_2( write_irw_en_2 ),
     .write_irw_en_1( write_irw_en_1 ),
     .write_irw_en_0( write_irw_en_0 ),
-    // inputs    
+    // inputs
     .async_rst_b( async_rst_b ),
     .read_risc_regs(               // in  -- read register bits
-		   { xgr7,             // XGR7
-		     xgr6,             // XGR6
-		     xgr5,             // XGR5
-		     xgr4,             // XGR4
-		     xgr3,             // XGR3
-		     xgr2,             // XGR2
-		     xgr1,             // XGR1
-		     16'b0,            // Reserved (XGR0)
-		     xgate_address,    // XGPC
-		     {12'h000,  negative_flag, zero_flag, overflow_flag, carry_flag},  // XGCCR
-		     16'b0,                // Reserved
-		     {8'h00, host_semap},  // XGSEM
-		     {8'h00, xgswt},       // XGSWT
-		     {xgif_status[ 15:  1], 1'b0}, // XGIF_0
-		     xgif_status[ 31: 16], // XGIF_1
-		     xgif_status[ 47: 32], // XGIF_2
-		     xgif_status[ 63: 48], // XGIF_3
-		     xgif_status[ 79: 64], // XGIF_4
-		     xgif_status[ 95: 80], // XGIF_5
-		     xgif_status[111: 96], // XGIF_6
-		     xgif_status[127:112], // XGIF_7
-		     {xgvbr[15:1], 1'b0},  // XGVBR
-		     16'b0,                // Reserved
-		     16'b0,                // Reserved
-		     {8'b0, 1'b0, xgchid}, // XGCHID
-		     {8'b0, xge, xgfrz, debug_active, 1'b0, xgfact, brk_irq_ena, xg_sw_irq, xgie}  // XGMCTL
-		   }
-		  ),
+       { xgr7,             // XGR7
+         xgr6,             // XGR6
+         xgr5,             // XGR5
+         xgr4,             // XGR4
+         xgr3,             // XGR3
+         xgr2,             // XGR2
+         xgr1,             // XGR1
+         16'b0,            // Reserved (XGR0)
+         xgate_address,    // XGPC
+         {12'h000,  negative_flag, zero_flag, overflow_flag, carry_flag},  // XGCCR
+         16'b0,                // Reserved
+         {8'h00, host_semap},  // XGSEM
+         {8'h00, xgswt},       // XGSWT
+         {xgif_status[ 15:  1], 1'b0}, // XGIF_0
+         xgif_status[ 31: 16], // XGIF_1
+         xgif_status[ 47: 32], // XGIF_2
+         xgif_status[ 63: 48], // XGIF_3
+         xgif_status[ 79: 64], // XGIF_4
+         xgif_status[ 95: 80], // XGIF_5
+         xgif_status[111: 96], // XGIF_6
+         xgif_status[127:112], // XGIF_7
+         {xgvbr[15:1], 1'b0},  // XGVBR
+         16'b0,                // Reserved
+         16'b0,                // Reserved
+         {8'b0, 1'b0, xgchid}, // XGCHID
+         {8'b0, xge, xgfrz, debug_active, 1'b0, xgfact, brk_irq_ena, xg_sw_irq, xgie}  // XGMCTL
+       }
+      ),
     .irq_bypass( irq_bypass )
 
   );
@@ -331,7 +331,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .xg_sw_irq( xg_sw_irq ),
     .mem_access( mem_access ),
     .single_step( single_step ),
-  
+
     // inputs
     .risc_clk( risc_clk ),
     .perif_data( wbs_dat_i ),
@@ -371,7 +371,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .clear_xgif_data( clear_xgif_data )
   );
 
-  xgate_irq_encode #(.MAX_CHANNEL(MAX_CHANNEL)) 
+  xgate_irq_encode #(.MAX_CHANNEL(MAX_CHANNEL))
     irq_encode(
     // outputs
     .xgif( xgif ),

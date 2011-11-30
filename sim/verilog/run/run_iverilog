@@ -18,6 +18,7 @@ iverilog				\
 	$xgate/rtl/verilog/xgate_regs.v	\
 	$xgate/rtl/verilog/xgate_risc.v	\
 	$xgate/rtl/verilog/xgate_irq_encode.v	\
+	$xgate/rtl/verilog/xgate_jtag.v	\
 					\
 	$bench/verilog/wb_master_model.v	\
 	$bench/verilog/ram.v	        \

@@ -35,17 +35,6 @@
 ////                                                               ////
 ///////////////////////////////////////////////////////////////////////
 
-//  CVS Log
-//
-//  $Id$
-//
-//  $Date$
-//  $Revision$
-//  $Author$
-//  $Locker$
-//  $State$
-//
-// Change History:
 //
 `include "timescale.v"
 
@@ -71,7 +60,7 @@ input                      rty   // No Connect
 // Local Wires
 //
 
-reg [dwidth   -1:0] q;
+reg [dwidth-1:0] q;
 
 event test_command_start;
 event test_command_mid;
@@ -85,16 +74,16 @@ event cmp_error_detect;
 //
 
 initial
-        begin
-                adr  = {awidth{1'bx}};
-                dout = {dwidth{1'bx}};
-                cyc  = 1'b0;
-                stb  = 1'bx;
-                we   = 1'hx;
-                sel  = {dwidth/8{1'bx}};
-                #1;
-                $display("\nINFO: WISHBONE MASTER MODEL INSTANTIATED (%m)");
-        end
+  begin
+    adr  = {awidth{1'bx}};
+    dout = {dwidth{1'bx}};
+    cyc  = 1'b0;
+    stb  = 1'bx;
+    we   = 1'hx;
+    sel  = {dwidth/8{1'bx}};
+    #1;
+    $display("\nINFO: WISHBONE MASTER MODEL INSTANTIATED (%m)");
+  end
 
 
 ////////////////////////////////////////////////////////////////////
@@ -103,44 +92,44 @@ initial
 //
 
 task wb_write;
-        input   delay;
-        integer delay;
+  input   delay;
+  integer delay;
 
-        input   [awidth   -1:0] a;
-        input   [dwidth   -1:0] d;
-	input   [dwidth/8 -1:0] s;
+  input   [awidth   -1:0] a;
+  input   [dwidth   -1:0] d;
+  input   [dwidth/8 -1:0] s;
 
-        begin
-                -> test_command_start;
-                // wait initial delay
-                repeat(delay) @(posedge clk);
+  begin
+    -> test_command_start;
+    // wait initial delay
+    repeat(delay) @(posedge clk);
 
-                // assert wishbone signal
-                #1;
-                adr  = a;
-                dout = d;
-                cyc  = 1'b1;
-                stb  = 1'b1;
-                we   = 1'b1;
-                sel  = s;
-                @(posedge clk);
-                -> test_command_mid;
+    // assert wishbone signal
+    #1;
+    adr  = a;
+    dout = d;
+    cyc  = 1'b1;
+    stb  = 1'b1;
+    we   = 1'b1;
+    sel  = s;
+    @(posedge clk);
+    -> test_command_mid;
 
-                // wait for acknowledge from slave
-                while(~ack)     @(posedge clk);
-                -> test_command_mid;
+    // wait for acknowledge from slave
+    while(~ack)     @(posedge clk);
+    -> test_command_mid;
 
-                // negate wishbone signals
-                #1;
-                cyc  = 1'b0;
-                stb  = 1'bx;
-                adr  = {awidth{1'bx}};
-                dout = {dwidth{1'bx}};
-                we   = 1'hx;
-                sel  = {dwidth/8{1'bx}};
-                -> test_command_end;
+    // negate wishbone signals
+    #1;
+    cyc  = 1'b0;
+    stb  = 1'bx;
+    adr  = {awidth{1'bx}};
+    dout = {dwidth{1'bx}};
+    we   = 1'hx;
+    sel  = {dwidth/8{1'bx}};
+    -> test_command_end;
+  end
 
-        end
 endtask
 
 ////////////////////////////////////////////////////////////////////
@@ -149,42 +138,41 @@ endtask
 //
 
 task wb_read;
-        input   delay;
-        integer delay;
+  input   delay;
+  integer delay;
 
-        input   [awidth   -1:0] a;
-        output  [dwidth   -1:0] d;
-	input   [dwidth/8 -1:0] s;
+  input   [awidth   -1:0] a;
+  output  [dwidth   -1:0] d;
+  input   [dwidth/8 -1:0] s;
 
-        begin
+  begin
+    // wait initial delay
+    repeat(delay) @(posedge clk);
 
-                // wait initial delay
-                repeat(delay) @(posedge clk);
+    // assert wishbone signals
+    #1;
+    adr  = a;
+    dout = {dwidth{1'bx}};
+    cyc  = 1'b1;
+    stb  = 1'b1;
+    we   = 1'b0;
+    sel  = s;
+    @(posedge clk);
 
-                // assert wishbone signals
-                #1;
-                adr  = a;
-                dout = {dwidth{1'bx}};
-                cyc  = 1'b1;
-                stb  = 1'b1;
-                we   = 1'b0;
-                sel  = s;
-                @(posedge clk);
+    // wait for acknowledge from slave
+    while(~ack)     @(posedge clk);
 
-                // wait for acknowledge from slave
-                while(~ack)     @(posedge clk);
+    // negate wishbone signals
+    d    = din; // Grab the data on the posedge of clock
+    #1;         // Delay the clearing (hold time of the control signals
+    cyc  = 1'b0;
+    stb  = 1'bx;
+    adr  = {awidth{1'bx}};
+    dout = {dwidth{1'bx}};
+    we   = 1'hx;
+    sel  = {dwidth/8{1'bx}};
+  end
 
-                // negate wishbone signals
-                d    = din; // Grab the data on the posedge of clock
-                #1;         // Delay the clearing (hold time of the control signals
-                cyc  = 1'b0;
-                stb  = 1'bx;
-                adr  = {awidth{1'bx}};
-                dout = {dwidth{1'bx}};
-                we   = 1'hx;
-                sel  = {dwidth/8{1'bx}};
-
-        end
 endtask
 
 ////////////////////////////////////////////////////////////////////
@@ -193,22 +181,23 @@ endtask
 //
 
 task wb_cmp;
-        input   delay;
-        integer delay;
+  input   delay;
+  integer delay;
 
-        input [awidth   -1:0] a;
-        input [dwidth   -1:0] d_exp;
-	input [dwidth/8 -1:0] s;
+  input [awidth   -1:0] a;
+  input [dwidth   -1:0] d_exp;
+  input [dwidth/8 -1:0] s;
 
-        begin
-                wb_read (delay, a, q, s);
+  begin
+    wb_read (delay, a, q, s);
 
-                if (d_exp !== q)
-		  begin
-		        -> cmp_error_detect;
-                        $display("Data compare error at address %h. Received %h, expected %h at time %t", a, q, d_exp, $time);
-		  end
-        end
+    if (d_exp !== q)
+      begin
+        -> cmp_error_detect;
+        $display("Data compare error at address %h. Received %h, expected %h at time %t", a, q, d_exp, $time);
+      end
+  end
+
 endtask
 
 endmodule

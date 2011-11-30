@@ -39,7 +39,7 @@
 // 45678901234567890123456789012345678901234567890123456789012345678901234567890
 
 module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
-  		       parameter DWIDTH = 16,
+                       parameter DWIDTH   = 16,
                        parameter SINGLE_CYCLE = 1'b0)
   (
   // Wishbone Signals
@@ -63,7 +63,7 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                    single_step,      // Pulse to trigger a single instruction execution in debug mode
   output                   ss_mem_ack,       // WISHBONE Bus has granted single step memory access
   input             [15:0] xgate_address,    // Address to system memory
-  input                    mem_access,       // 
+  input                    mem_access,       //
   input                    write_mem_strb_l, // Strobe for writing low data byte
   input                    write_mem_strb_h, // Strobe for writing high data bye
   input       [DWIDTH-1:0] write_mem_data    // Data to system memory
@@ -77,29 +77,29 @@ module xgate_wbm_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   //
   // Module body
   //
-  
+
   // Latch Single Step Request and ask for memory access
   always @(posedge risc_clk or negedge async_rst_b)
     if ( !async_rst_b )
       ss_mem_req <= 1'b0;
     else
       ss_mem_req <= (single_step || ss_mem_req) && !wbm_ack_i && xge;
-      
+
   assign ss_mem_ack = ss_mem_req && wbm_ack_i;
 
-			
+
   assign wbm_dat_o = write_mem_data;
   assign read_mem_data = wbm_dat_i;
   assign wbm_adr_o = xgate_address;
-  
+
   assign mem_req_ack = wbm_ack_i;
-  
+
   assign wbm_we_o = write_mem_strb_h || write_mem_strb_l;
-  
+
   assign wbm_sel_o = {write_mem_strb_h, write_mem_strb_l};
-  
+
   assign wbm_cyc_o = xge && (mem_access || ss_mem_req);
-  
+
   assign wbm_stb_o = xge && (mem_access || ss_mem_req);
 
 endmodule  // xgate_wbm_bus

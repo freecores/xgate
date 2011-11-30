@@ -3,7 +3,7 @@
 //  WISHBONE revB.2 compliant Xgate Coprocessor - Test Bench
 //
 //  Author: Bob Hayes
-//	    rehayes@opencores.org
+//      rehayes@opencores.org
 //
 //  Downloaded from: http://www.opencores.org/projects/xgate.....
 //
@@ -17,10 +17,10 @@
 //
 // Supplemental terms.
 //     * Redistributions of source code must retain the above copyright
-//	 notice, this list of conditions and the following disclaimer.
+//   notice, this list of conditions and the following disclaimer.
 //     * Neither the name of the <organization> nor the
-//	 names of its contributors may be used to endorse or promote products
-//	 derived from this software without specific prior written permission.
+//   names of its contributors may be used to endorse or promote products
+//   derived from this software without specific prior written permission.
 //
 // THIS SOFTWARE IS PROVIDED BY Robert Hayes ''AS IS'' AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -43,12 +43,9 @@
 
 module tst_bench_top();
 
-  parameter MAX_CHANNEL = 127;	  // Max XGATE Interrupt Channel Number
+  parameter MAX_CHANNEL   = 127;    // Max XGATE Interrupt Channel Number
   parameter STOP_ON_ERROR = 1'b0;
-  parameter MAX_VECTOR = 9000;
-  
-  parameter IR_BITS = 4;     // Number of bits in JTAG instruction
-  parameter JTAG_PERIOD = 4; // JTAG Test clock half period
+  parameter MAX_VECTOR    = 12_000;
 
   parameter L_BYTE = 2'b01;
   parameter H_BYTE = 2'b10;
@@ -56,12 +53,12 @@ module tst_bench_top();
 
 
   // Name Address Locations
-  parameter XGATE_BASE	   = 24'h1000;
+  parameter XGATE_BASE     = 24'h1000;
   parameter XGATE_XGMCTL   = XGATE_BASE + 6'h00;
   parameter XGATE_XGCHID   = XGATE_BASE + 6'h02;
   parameter XGATE_XGISPHI  = XGATE_BASE + 6'h04;
   parameter XGATE_XGISPLO  = XGATE_BASE + 6'h06;
-  parameter XGATE_XGVBR	   = XGATE_BASE + 6'h08;
+  parameter XGATE_XGVBR    = XGATE_BASE + 6'h08;
   parameter XGATE_XGIF_7   = XGATE_BASE + 6'h0a;
   parameter XGATE_XGIF_6   = XGATE_BASE + 6'h0c;
   parameter XGATE_XGIF_5   = XGATE_BASE + 6'h0e;
@@ -70,22 +67,22 @@ module tst_bench_top();
   parameter XGATE_XGIF_2   = XGATE_BASE + 6'h14;
   parameter XGATE_XGIF_1   = XGATE_BASE + 6'h16;
   parameter XGATE_XGIF_0   = XGATE_BASE + 6'h18;
-  parameter XGATE_XGSWT	   = XGATE_BASE + 6'h1a;
-  parameter XGATE_XGSEM	   = XGATE_BASE + 6'h1c;
-  parameter XGATE_RES1	   = XGATE_BASE + 6'h1e;
-  parameter XGATE_XGCCR	   = XGATE_BASE + 6'h20;
-  parameter XGATE_XGPC	   = XGATE_BASE + 6'h22;
-  parameter XGATE_RES2	   = XGATE_BASE + 6'h24;
-  parameter XGATE_XGR1	   = XGATE_BASE + 6'h26;
-  parameter XGATE_XGR2	   = XGATE_BASE + 6'h28;
-  parameter XGATE_XGR3	   = XGATE_BASE + 6'h2a;
-  parameter XGATE_XGR4	   = XGATE_BASE + 6'h2c;
-  parameter XGATE_XGR5	   = XGATE_BASE + 6'h2e;
-  parameter XGATE_XGR6	   = XGATE_BASE + 6'h30;
-  parameter XGATE_XGR7	   = XGATE_BASE + 6'h32;
+  parameter XGATE_XGSWT    = XGATE_BASE + 6'h1a;
+  parameter XGATE_XGSEM    = XGATE_BASE + 6'h1c;
+  parameter XGATE_RES1     = XGATE_BASE + 6'h1e;
+  parameter XGATE_XGCCR    = XGATE_BASE + 6'h20;
+  parameter XGATE_XGPC     = XGATE_BASE + 6'h22;
+  parameter XGATE_RES2     = XGATE_BASE + 6'h24;
+  parameter XGATE_XGR1     = XGATE_BASE + 6'h26;
+  parameter XGATE_XGR2     = XGATE_BASE + 6'h28;
+  parameter XGATE_XGR3     = XGATE_BASE + 6'h2a;
+  parameter XGATE_XGR4     = XGATE_BASE + 6'h2c;
+  parameter XGATE_XGR5     = XGATE_BASE + 6'h2e;
+  parameter XGATE_XGR6     = XGATE_BASE + 6'h30;
+  parameter XGATE_XGR7     = XGATE_BASE + 6'h32;
 
   // Define bits in XGATE Control Register
-  parameter XGMCTL_XGEM	    = 16'h8000;
+  parameter XGMCTL_XGEM     = 16'h8000;
   parameter XGMCTL_XGFRZM   = 16'h4000;
   parameter XGMCTL_XGDBGM   = 15'h2000;
   parameter XGMCTL_XGSSM    = 15'h1000;
@@ -93,14 +90,14 @@ module tst_bench_top();
   parameter XGMCTL_XGBRKIEM = 15'h0400;
   parameter XGMCTL_XGSWEIFM = 15'h0200;
   parameter XGMCTL_XGIEM    = 15'h0100;
-  parameter XGMCTL_XGE	    = 16'h0080;
+  parameter XGMCTL_XGE      = 16'h0080;
   parameter XGMCTL_XGFRZ    = 16'h0040;
   parameter XGMCTL_XGDBG    = 15'h0020;
-  parameter XGMCTL_XGSS	    = 15'h0010;
+  parameter XGMCTL_XGSS     = 15'h0010;
   parameter XGMCTL_XGFACT   = 15'h0008;
   parameter XGMCTL_XGBRKIE  = 15'h0004;
   parameter XGMCTL_XGSWEIF  = 15'h0002;
-  parameter XGMCTL_XGIE	    = 15'h0001;
+  parameter XGMCTL_XGIE     = 15'h0001;
 
   parameter CHECK_POINT     = 16'h8000;
   parameter CHANNEL_ACK     = CHECK_POINT + 2;
@@ -126,65 +123,58 @@ module tst_bench_top();
   parameter BREAK_CAPT_7    = CHECK_POINT + 78;
 
   parameter SYS_RAM_BASE = 24'h00_0000;
-  
-  parameter RAM_WAIT_STATES = 1; // Number between 0 and 15
-  parameter SYS_READ_DELAY  = 10;
-  parameter XGATE_ACCESS_DELAY = SYS_READ_DELAY + RAM_WAIT_STATES;
-  parameter XGATE_SS_DELAY = XGATE_ACCESS_DELAY + RAM_WAIT_STATES;
 
-  parameter IRQ_BASE	   = XGATE_BASE + 64;
-  parameter IRQ_BYPS_0	   = IRQ_BASE + 0;
-  parameter IRQ_BYPS_1	   = IRQ_BASE + 2;
-  parameter IRQ_BYPS_2	   = IRQ_BASE + 4;
-  parameter IRQ_BYPS_3	   = IRQ_BASE + 6;
-  parameter IRQ_BYPS_4	   = IRQ_BASE + 8;
-  parameter IRQ_BYPS_5	   = IRQ_BASE + 10;
-  parameter IRQ_BYPS_6	   = IRQ_BASE + 12;
-  parameter IRQ_BYPS_7	   = IRQ_BASE + 14;
+  parameter RAM_WAIT_STATES    = 1; // Number between 0 and 15
+  parameter SYS_READ_DELAY     = 10;
+  parameter XGATE_ACCESS_DELAY = SYS_READ_DELAY + RAM_WAIT_STATES;
+  parameter XGATE_SS_DELAY     = XGATE_ACCESS_DELAY + RAM_WAIT_STATES;
+
+  parameter IRQ_BASE       = XGATE_BASE + 64;
+  parameter IRQ_BYPS_0     = IRQ_BASE + 0;
+  parameter IRQ_BYPS_1     = IRQ_BASE + 2;
+  parameter IRQ_BYPS_2     = IRQ_BASE + 4;
+  parameter IRQ_BYPS_3     = IRQ_BASE + 6;
+  parameter IRQ_BYPS_4     = IRQ_BASE + 8;
+  parameter IRQ_BYPS_5     = IRQ_BASE + 10;
+  parameter IRQ_BYPS_6     = IRQ_BASE + 12;
+  parameter IRQ_BYPS_7     = IRQ_BASE + 14;
 
   //
   // wires && regs
   //
-  reg	      mstr_test_clk;
+  reg         mstr_test_clk;
   reg  [19:0] vector;
   reg  [15:0] error_count;
   reg  [ 7:0] test_num;
 
   reg  [15:0] q, qq;
 
-  reg	      rstn;
-  reg	      sync_reset;
-  reg	      por_reset_b;
-  reg	      scantestmode;
-  
-  reg         jtag_tck;
-  reg         jtag_tdi;
-  reg         jtag_tms;
-  
-  wire        jtag_tdo;
-  wire        jtag_tdo_en;
+  reg       rstn;
+  reg       sync_reset;
+  reg       por_reset_b;
+  reg       scantestmode;
 
   reg  [MAX_CHANNEL:1] channel_req;  // XGATE Interrupt inputs
-  wire [MAX_CHANNEL:1] xgif;	     // XGATE Interrupt outputs
-  wire	       [  7:0] xgswt;	     // XGATE Software Trigger outputs
-  wire		       xg_sw_irq;    // Xgate Software Error interrupt
-  wire	        [15:0] brkpt_cntl;   // 
+  wire [MAX_CHANNEL:1] xgif;         // XGATE Interrupt outputs
+  wire         [  7:0] xgswt;        // XGATE Software Trigger outputs
+  wire                 xg_sw_irq;    // Xgate Software Error interrupt
+  wire          [15:0] brkpt_cntl;   //
 
 
-  wire [15:0] wbm_dat_o;	 // WISHBONE Master Mode data output from XGATE
-  wire [15:0] wbm_dat_i;	 // WISHBONE Master Mode data input to XGATE
-  wire [15:0] wbm_adr_o;	 // WISHBONE Master Mode address output from XGATE
+  wire [15:0] wbm_dat_o;   // WISHBONE Master Mode data output from XGATE
+  wire [15:0] wbm_dat_i;   // WISHBONE Master Mode data input to XGATE
+  wire [15:0] wbm_adr_o;   // WISHBONE Master Mode address output from XGATE
   wire [ 1:0] wbm_sel_o;
 
-  reg	      mem_wait_state_enable;
+  reg       mem_wait_state_enable;
 
   wire [15:0] tb_ram_out;
 
   wire [15:0] tb_slave_dout; // WISHBONE data bus output from testbench slave module
-  wire	      error_pulse;   // Error detected output pulse from the testbench slave module
-  wire	      tb_slave_ack;  // WISHBONE ack from testbench slave module
-  wire	      ack_pulse;     // Thread ack output pulse from testbench slave module
-  
+  wire        error_pulse;   // Error detected output pulse from the testbench slave module
+  wire        tb_slave_ack;  // WISHBONE ack from testbench slave module
+  wire        ack_pulse;     // Thread ack output pulse from testbench slave module
+
   wire        wbm_cyc_o;
   wire        wbm_stb_o;
   wire        wbm_we_o;
@@ -198,67 +188,70 @@ module tst_bench_top();
   reg  [15:0] data_xgswt;
   reg  [15:0] data_xgsem;
 
-  wire	      sys_cyc;
-  wire	      sys_stb;
-  wire	      sys_we;
+  wire        sys_cyc;
+  wire        sys_stb;
+  wire        sys_we;
   wire [ 1:0] sys_sel;
   wire [23:0] sys_adr;
   wire [15:0] sys_dout;
   wire [15:0] sys_din;
 
-  wire	      host_ack;
+  wire        host_ack;
   wire [15:0] host_dout;
-  wire	      host_cyc;
-  wire	      host_stb;
-  wire	      host_we;
+  wire        host_cyc;
+  wire        host_stb;
+  wire        host_we;
   wire [ 1:0] host_sel;
   wire [23:0] host_adr;
   wire [15:0] host_din;
 
-  wire	      xgate_ack;
+  wire        xgate_ack;
   wire [15:0] xgate_dout;
-  wire	      xgate_cyc;
-  wire	      xgate_stb;
-  wire	      xgate_we;
+  wire        xgate_cyc;
+  wire        xgate_stb;
+  wire        xgate_we;
   wire [ 1:0] xgate_sel;
   wire [15:0] xgate_adr;
   wire [15:0] xgate_din;
 
-  wire	      xgate_s_stb;
-  wire	      xgate_s_ack;
+  wire        xgate_s_stb;
+  wire        xgate_s_ack;
   wire [15:0] xgate_s_dout;
 
-  wire	      slv2_stb;
-  wire	      ram_sel;
+  wire        slv2_stb;
+  wire        ram_sel;
   wire [15:0] ram_dout;
 
   // initial values and testbench setup
   initial
     begin
       mstr_test_clk = 0;
-      vector = 0;
-      test_num = 0;
-      por_reset_b = 0;
-      scantestmode = 0;
-      error_count = 0;
+      vector        = 0;
+      test_num      = 0;
+      por_reset_b   = 0;
+      scantestmode  = 0;
+      error_count   = 0;
       mem_wait_state_enable = 0;
-      jtag_tck = 0;
-      jtag_tdi = 0;
-      jtag_tms = 1;
-
       // channel_req = 0;
 
       `ifdef WAVES
-	   $shm_open("waves");
-	   $shm_probe("AS",tst_bench_top,"AS");
-	   $display("\nINFO: Signal dump enabled ...\n\n");
+         $shm_open("waves");
+         $shm_probe("AS", tst_bench_top, "AS");
+         $display("\nINFO: Signal dump enabled ...\n\n");
       `endif
 
       `ifdef WAVES_V
-	   $dumpfile ("xgate_wave_dump.lxt");
-	   $dumpvars (0, tst_bench_top);
-	   $dumpon;
-	   $display("\nINFO: VCD Signal dump enabled ...\n\n");
+         $dumpfile ("xgate_wave_dump.lxt");
+         $dumpvars (0, tst_bench_top);
+         $dumpon;
+         $display("\nINFO: VCD Signal dump enabled ...\n\n");
+      `endif
+
+      //-------------------------------------------------------
+      // Enable Debussy dumping of simulation
+      `ifdef FSDB
+         $fsdbDumpfile("verilog.fsdb");
+         $fsdbDumpvars(0, tst_bench_top);
       `endif
 
     end
@@ -271,11 +264,11 @@ module tst_bench_top();
     begin
       vector <= vector + 1;
       if (vector > MAX_VECTOR)
-	begin
-	  error_count <= error_count + 1;
-	  $display("\n ------ !!!!! Simulation Timeout at vector=%d\n -------", vector);
-	  wrap_up;
-	end
+        begin
+          error_count <= error_count + 1;
+          $display("\n ------ !!!!! Simulation Timeout at vector=%d\n -------", vector);
+          wrap_up;
+        end
     end
 
   // Add up errors that come from WISHBONE read compares
@@ -289,7 +282,7 @@ module tst_bench_top();
       #1;
       error_count = error_count + 1;
       if (STOP_ON_ERROR == 1'b1)
-	wrap_up;
+        wrap_up;
     end
 
   wire [ 6:0] current_active_channel = xgate.risc.xgchid;
@@ -332,14 +325,14 @@ module tst_bench_top();
   );
 
   bus_arbitration  #(.dwidth(16),
-		     .awidth(24),
-		     .ram_base(0),
-		     .ram_size(17'h10000),
-		     .slv1_base(XGATE_BASE),
-		     .slv1_size(128),
-		     .slv2_base(CHECK_POINT),
-		     .slv2_size(32),
-		     .ram_wait_states(RAM_WAIT_STATES)
+                     .awidth(24),
+                     .ram_base(0),
+                     .ram_size(17'h10000),
+                     .slv1_base(XGATE_BASE),
+                     .slv1_size(128),
+                     .slv2_base(CHECK_POINT),
+                     .slv2_size(32),
+                     .ram_wait_states(RAM_WAIT_STATES)
 )
     arb(
     // System bus I/O
@@ -389,81 +382,69 @@ module tst_bench_top();
   // hookup XGATE core - Parameters take all default values
   xgate_top  #(.SINGLE_CYCLE(1'b0),
                .WB_RD_DEFAULT(1'b0),
-	       .MAX_CHANNEL(MAX_CHANNEL))    // Max XGATE Interrupt Channel Number
-	  xgate(
-	  // Wishbone slave interface
-	  .wbs_clk_i( mstr_test_clk ),
-	  .wbs_rst_i( 1'b0 ),	      // sync_reset
-	  .arst_i( rstn ),	      // async resetn
-	  .wbs_adr_i( sys_adr[6:1] ),
-	  .wbs_dat_i( sys_dout ),
-	  .wbs_dat_o( xgate_s_dout ),
-	  .wbs_we_i( sys_we ),
-	  .wbs_stb_i( xgate_s_stb ),
-	  .wbs_cyc_i( sys_cyc ),
-	  .wbs_sel_i( sys_sel ),
-	  .wbs_ack_o( xgate_s_ack ),
-	  .wbs_err_o( wbs_err_o ),
+               .MAX_CHANNEL(MAX_CHANNEL))    // Max XGATE Interrupt Channel Number
+    xgate(
+    // Wishbone slave interface
+    .wbs_clk_i( mstr_test_clk ),
+    .wbs_rst_i( 1'b0 ),       // sync_reset
+    .arst_i( rstn ),          // async resetn
+    .wbs_adr_i( sys_adr[6:1] ),
+    .wbs_dat_i( sys_dout ),
+    .wbs_dat_o( xgate_s_dout ),
+    .wbs_we_i( sys_we ),
+    .wbs_stb_i( xgate_s_stb ),
+    .wbs_cyc_i( sys_cyc ),
+    .wbs_sel_i( sys_sel ),
+    .wbs_ack_o( xgate_s_ack ),
+    .wbs_err_o( wbs_err_o ),
 
-	  // Wishbone master Signals
-	  .wbm_dat_o( wbm_dat_o ),
-	  .wbm_we_o( wbm_we_o ),
-	  .wbm_stb_o( wbm_stb_o ),
-	  .wbm_cyc_o( wbm_cyc_o ),
-	  .wbm_sel_o( wbm_sel_o ),
-	  .wbm_adr_o( wbm_adr_o ),
-	  .wbm_dat_i( sys_din ),
-	  .wbm_ack_i( xgate_ack ),
+    // Wishbone master Signals
+    .wbm_dat_o( wbm_dat_o ),
+    .wbm_we_o( wbm_we_o ),
+    .wbm_stb_o( wbm_stb_o ),
+    .wbm_cyc_o( wbm_cyc_o ),
+    .wbm_sel_o( wbm_sel_o ),
+    .wbm_adr_o( wbm_adr_o ),
+    .wbm_dat_i( sys_din ),
+    .wbm_ack_i( xgate_ack ),
 
-	  .xgif( xgif ),	     // XGATE Interrupt Flag output
-	  .xg_sw_irq( xg_sw_irq ),   // XGATE Software Error Interrupt Flag output
-	  .xgswt( xgswt ),
-	  .risc_clk( mstr_test_clk ),
-	  .chan_req_i( {channel_req[MAX_CHANNEL:40], xgswt, channel_req[31:1]} ),
-          .debug_mode_i( 1'b0 ),
-          .secure_mode_i( 1'b0 ),
-	  .scantestmode( scantestmode )
+    .xgif( xgif ),             // XGATE Interrupt Flag output
+    .xg_sw_irq( xg_sw_irq ),   // XGATE Software Error Interrupt Flag output
+    .xgswt( xgswt ),
+    .risc_clk( mstr_test_clk ),
+    .chan_req_i( {channel_req[MAX_CHANNEL:40], xgswt, channel_req[31:1]} ),
+    .debug_mode_i( 1'b0 ),
+    .secure_mode_i( 1'b0 ),
+    .scantestmode( scantestmode )
   );
-  
-  xgate_jtag #(.IR_BITS(IR_BITS))
-  jtag(
-  .jtag_tdo( jtag_tdo ),
-  .jtag_tdo_en( jtag_tdo_en ),
-
-  .jtag_tdi( jtag_tdi ),
-  .jtag_clk( jtag_tck ),
-  .jtag_reset_n( rstn ),
-  .jtag_tms( jtag_tms )
-  );
-
 
   tb_slave #(.DWIDTH(16),
-	     .SINGLE_CYCLE(1'b1),
-	     .MAX_CHANNEL(MAX_CHANNEL))
-	  tb_slave_regs(
-	  // wishbone interface
-	  .wb_clk_i( mstr_test_clk ),
-	  .wb_rst_i( 1'b0 ),
-	  .arst_i( rstn ),
-	  .wb_adr_i( sys_adr[4:1] ),
-	  .wb_dat_i( sys_dout ),
-	  .wb_dat_o( tb_slave_dout),
-	  .wb_we_i( sys_we ),
-	  .wb_stb_i( slv2_stb ),
-	  .wb_cyc_i( sys_cyc ),
-	  .wb_sel_i( sys_sel ),
-	  .wb_ack_o( tb_slave_ack ),
+             .SINGLE_CYCLE(1'b1),
+             .MAX_CHANNEL(MAX_CHANNEL))
+    tb_slave_regs(
+    // wishbone interface
+    .wb_clk_i( mstr_test_clk ),
+    .wb_rst_i( 1'b0 ),
+    .arst_i( rstn ),
+    .wb_adr_i( sys_adr[4:1] ),
+    .wb_dat_i( sys_dout ),
+    .wb_dat_o( tb_slave_dout),
+    .wb_we_i( sys_we ),
+    .wb_stb_i( slv2_stb ),
+    .wb_cyc_i( sys_cyc ),
+    .wb_sel_i( sys_sel ),
+    .wb_ack_o( tb_slave_ack ),
 
-	  .ack_pulse( ack_pulse ),
+    .ack_pulse( ack_pulse ),
           .brkpt_cntl( brkpt_cntl ),
-	  .error_pulse( error_pulse ),
-	  .brk_pt(  ),
-	  .x_address( wbm_adr_o ),
-	  .xgif( xgif ),
-	  .vector( vector )
+    .error_pulse( error_pulse ),
+    .brk_pt(  ),
+    .x_address( wbm_adr_o ),
+    .xgif( xgif ),
+    .vector( vector )
   );
 
-tb_debug #(.DWIDTH(16),	                 // Data bus width
+tb_debug #(.DWIDTH(16),                  // Data bus width
            .BREAK_CAPT_0(BREAK_CAPT_0),
            .BREAK_CAPT_1(BREAK_CAPT_1),
            .BREAK_CAPT_2(BREAK_CAPT_2),
@@ -473,9 +454,9 @@ tb_debug #(.DWIDTH(16),	                 // Data bus width
            .BREAK_CAPT_6(BREAK_CAPT_6),
            .BREAK_CAPT_7(BREAK_CAPT_7))
   debugger(
-	  .arst_i( rstn ),
-	  .risc_clk( mstr_test_clk ),
-          .brkpt_cntl( brkpt_cntl )
+    .arst_i( rstn ),
+    .risc_clk( mstr_test_clk ),
+    .brkpt_cntl( brkpt_cntl )
   );
 
 
@@ -489,21 +470,23 @@ initial
     $display("\nstatus at time: %t Testbench started", $time);
 
     // reset system
-    rstn = 1'b1; // negate reset
-    channel_req = 1; //
+    rstn = 1'b1;        // negate reset
+    channel_req = 1;    //
     repeat(1) @(posedge mstr_test_clk);
-    sync_reset = 1'b1;	// Make the sync reset 1 clock cycle long
-    #2;		 // move the async reset away from the clock edge
-    rstn = 1'b0; // assert async reset
-    #5;		 // Keep the async reset pulse with less than a clock cycle
-    rstn = 1'b1; // negate async reset
+    sync_reset = 1'b1;  // Make the sync reset 1 clock cycle long
+    #2;                 // move the async reset away from the clock edge
+    rstn = 1'b0;        // assert async reset
+    #5;                 // Keep the async reset pulse with less than a clock cycle
+    rstn = 1'b1;        // negate async reset
     por_reset_b = 1'b1;
-    channel_req = 0; //
+    channel_req = 0;    //
     repeat(1) @(posedge mstr_test_clk);
     sync_reset = 1'b0;
-    channel_req = 0; //
+    channel_req = 0;    //
 
     $display("\nstatus at time: %t done reset", $time);
+
+    test_skipjack;
 
     test_inst_set;
 
@@ -514,36 +497,13 @@ initial
     test_chid_debug;
 
     reg_test_16;
-    
+
     reg_irq;
 
     // host_ram;
 
-    // test_skipjack;
-
     // End testing
     wrap_up;
-  end
-
-// Main JTAG Test Program
-initial
-  begin
-    $display("\nstatus at time: %t Testbench started", $time);
-  //              tms, tdi
-    send_jtag_bit(1,0);  // RUN/TEST/IDLE
-    send_jtag_bit(0,1);  // SEL DR
-    send_jtag_bit(1,1);  // SEL IR
-    send_jtag_bit(1,1);  // Capture IR
-    send_jtag_bit(0,1);  // Dead Bit?
-    send_jtag_bit(0,1);  // LSB
-    send_jtag_bit(0,0);  // Bit 1
-    send_jtag_bit(0,1);  // Bit 2
-    send_jtag_bit(0,0);  // Bit 3
-    send_jtag_bit(1,1);  // EXIT1 IR
-    send_jtag_bit(1,1);  // UPDATE IR
-    send_jtag_bit(0,1);  // RUN/TEST/IDLE    
-    send_jtag_bit(0,1);  // RUN/TEST/IDLE    
-
   end
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -558,66 +518,66 @@ task test_chid_debug;
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Enable interrupt on BRK instruction
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Enable interrupt on BRK instruction
     $display("BRK Software Error Interrupt enabled at vector=%d", vector);
 
     activate_thread_sw(3);
 
     wait_debug_set;   // Debug Status bit is set by BRK instruction
 
-    host.wb_cmp(0, XGATE_XGPC,	   16'h20c6, WORD);	 // See Program code (BRK).
-    host.wb_cmp(0, XGATE_XGR3,	   16'h0001, WORD);	 // See Program code.R3 = 1
-    host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);	 // Check for Correct CHID
+    host.wb_cmp(0, XGATE_XGPC,     16'h20c6, WORD);  // See Program code (BRK).
+    host.wb_cmp(0, XGATE_XGR3,     16'h0001, WORD);  // See Program code.R3 = 1
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);  // Check for Correct CHID
     $display("Debug entry detected at vector=%d", vector);
 
     channel_req[5] = 1'b1; //
     repeat(7) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);	 // Check for Correct CHID
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);    // Check for Correct CHID
 
-    host.wb_write(0, XGATE_XGCHID, 16'h000f, H_BYTE);	 // Check byte select lines
+    host.wb_write(0, XGATE_XGCHID, 16'h000f, H_BYTE);  // Check byte select lines
     repeat(4) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);	 // Verify CHID is unchanged
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0003, WORD);    // Verify CHID is unchanged
 
-    host.wb_write(0, XGATE_XGCHID, 16'h000f, L_BYTE);	 // Change CHID
-    host.wb_cmp(0, XGATE_XGCHID,   16'h000f, WORD);	 // Check for Correct CHID
+    host.wb_write(0, XGATE_XGCHID, 16'h000f, L_BYTE);  // Change CHID
+    host.wb_cmp(0, XGATE_XGCHID,   16'h000f, WORD);    // Check for Correct CHID
 
-    host.wb_write(0, XGATE_XGCHID, 16'h0000, WORD);	 // Change CHID to 00, RISC should go to IDLE state
+    host.wb_write(0, XGATE_XGCHID, 16'h0000, WORD);    // Change CHID to 00, RISC should go to IDLE state
 
     repeat(1) @(posedge mstr_test_clk);
 
-    host.wb_write(0, XGATE_XGCHID, 16'h0004, WORD);	 // Change CHID
+    host.wb_write(0, XGATE_XGCHID, 16'h0004, WORD);    // Change CHID
 
     repeat(8) @(posedge mstr_test_clk);
     $display("Channel ID changed at vector=%d", vector);
 
-    
+
     data_xgmctl = XGMCTL_XGDBGM;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Clear Debug Mode Control Bit
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Clear Debug Mode Control Bit
+
+    wait_debug_set;                                      // Debug Status bit is set by BRK instruction
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0004, WORD);      // Check for Correct CHID
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Clear Debug Mode Control Bit (Excape from Break State and run)
 
     wait_debug_set;   // Debug Status bit is set by BRK instruction
-    host.wb_cmp(0, XGATE_XGCHID,   16'h0004, WORD);	 // Check for Correct CHID
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Clear Debug Mode Control Bit (Excape from Break State and run)
-
-    wait_debug_set;   // Debug Status bit is set by BRK instruction
-    host.wb_cmp(0, XGATE_XGCHID,   16'h0005, WORD);	 // Check for Correct CHID
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0005, WORD);      // Check for Correct CHID
     activate_channel(6);
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Clear Debug Mode Control Bit (Excape from Break State and run)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Clear Debug Mode Control Bit (Excape from Break State and run)
 
-    wait_debug_set;   // Debug Status bit is set by BRK instruction
-    host.wb_cmp(0, XGATE_XGCHID,   16'h0006, WORD);	 // Check for Correct CHID
-    host.wb_cmp(0, XGATE_XGPC,	   16'h211c, WORD);	 // See Program code (BRK)
+    wait_debug_set;                                      // Debug Status bit is set by BRK instruction
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0006, WORD);      // Check for Correct CHID
+    host.wb_cmp(0, XGATE_XGPC,     16'h211c, WORD);      // See Program code (BRK)
     data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h211e, WORD);	 // See Program code (BRA)
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step
+    host.wb_cmp(0, XGATE_XGPC,     16'h211e, WORD);      // See Program code (BRA)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h2122, WORD);	 // See Program code ()
+    host.wb_cmp(0, XGATE_XGPC,     16'h2122, WORD);      // See Program code ()
 
     repeat(20) @(posedge mstr_test_clk);
 
     data_xgmctl = XGMCTL_XGDBGM;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Clear Debug Mode Control Bit
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Clear Debug Mode Control Bit
 
     repeat(50) @(posedge mstr_test_clk);
 
@@ -655,7 +615,7 @@ task test_debug_bit;
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Enable interrupt on BRK instruction
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Enable interrupt on BRK instruction
 
     activate_thread_sw(2);
 
@@ -663,7 +623,7 @@ task test_debug_bit;
     repeat(12 + RAM_WAIT_STATES*12) @(posedge mstr_test_clk);
 
     data_xgmctl = XGMCTL_XGDBGM | XGMCTL_XGDBG;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Set Debug Mode Control Bit
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Set Debug Mode Control Bit
     repeat(5) @(posedge mstr_test_clk);
     $display("DEBUG bit set at vector=%d", vector);
 
@@ -671,37 +631,37 @@ task test_debug_bit;
     data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
     qq = q;
 
-    // The Xgate test program is in an infinate loop incrementing R3
+    // The Xgate test program is in an infinite loop incrementing R3
     while (qq == q)  // Look for change in R3 register
       begin
-	host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step
-	repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-	host.wb_read(1, XGATE_XGR3, q, WORD);
+        host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step
+        repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
+        host.wb_read(1, XGATE_XGR3, q, WORD);
       end
     if (q != (qq+1))
       begin
-	$display("Error! - Unexpected value of R3 at vector=%d", vector);
-	error_count = error_count + 1;
+        $display("Error! - Unexpected value of R3 at vector=%d", vector);
+        error_count = error_count + 1;
       end
 
 
-    host.wb_write(1, XGATE_XGPC, 16'h2094, WORD);	 // Write to PC to force exit from infinite loop
+    host.wb_write(1, XGATE_XGPC, 16'h2094, WORD);    // Write to PC to force exit from infinite loop
     repeat(10) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h2094, WORD);	 // Verify Proram Counter was changed
+    host.wb_cmp(0, XGATE_XGPC,     16'h2094, WORD);  // Verify Proram Counter was changed
     $display("Program Counter changed at vector=%d", vector);
 
     data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (Load ADDL instruction)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load ADDL instruction)
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGR4,	   16'h0002, WORD);	 // See Program code.(R4 <= R4 + 1)
+    host.wb_cmp(0, XGATE_XGR4,     16'h0002, WORD);      // See Program code.(R4 <= R4 + 1)
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (Load ADDL instruction)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load ADDL instruction)
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGR4,	   16'h0003, WORD);	 // See Program code.(R4 <= R4 + 1)
+    host.wb_cmp(0, XGATE_XGR4,     16'h0003, WORD);      // See Program code.(R4 <= R4 + 1)
 
     data_xgmctl = XGMCTL_XGDBGM;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Clear Debug Mode Control Bit
-						 // Should be back in Run Mode
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Clear Debug Mode Control Bit
+             // Should be back in Run Mode
 
 //    data_xgmctl = XGMCTL_XGSWEIFM | XGMCTL_XGSWEIF | XGMCTL_XGBRKIEM;
 //    host.wb_write(0, XGATE_XGMCTL, data_xgmctl);   // Clear Software Interrupt and BRK Interrupt Enable Bit
@@ -722,73 +682,73 @@ task test_debug_mode;
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
     data_xgmctl = XGMCTL_XGBRKIEM | XGMCTL_XGBRKIE;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Enable interrupt on BRK instruction
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Enable interrupt on BRK instruction
 
     activate_thread_sw(1);
 
     wait_debug_set;   // Debug Status bit is set by BRK instruction
 
-    host.wb_cmp(0, XGATE_XGPC,	   16'h203a, WORD);	 // See Program code (BRK).
-    host.wb_cmp(0, XGATE_XGR3,	   16'h0001, WORD);	 // See Program code.R3 = 1
+    host.wb_cmp(0, XGATE_XGPC,     16'h203a, WORD);  // See Program code (BRK).
+    host.wb_cmp(0, XGATE_XGR3,     16'h0001, WORD);  // See Program code.R3 = 1
 
     data_xgmctl = XGMCTL_XGSSM | XGMCTL_XGSS;
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (Load ADDL instruction)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load ADDL instruction)
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h203c, WORD);	 // PC + 2.
+    host.wb_cmp(0, XGATE_XGPC,     16'h203c, WORD);      // PC + 2.
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (Load NOP instruction)
-    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);			 // Execute ADDL instruction
-    host.wb_cmp(0, XGATE_XGR3,	   16'h0002, WORD);	 // See Program code.(R3 <= R3 + 1)
-    host.wb_cmp(0, XGATE_XGCCR,	   16'h0000, WORD);	 // See Program code.
-    host.wb_cmp(0, XGATE_XGPC,	   16'h203e, WORD);	 // PC + 2.
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load NOP instruction)
+    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);     // Execute ADDL instruction
+    host.wb_cmp(0, XGATE_XGR3,     16'h0002, WORD);      // See Program code.(R3 <= R3 + 1)
+    host.wb_cmp(0, XGATE_XGCCR,    16'h0000, WORD);      // See Program code.
+    host.wb_cmp(0, XGATE_XGPC,     16'h203e, WORD);      // PC + 2.
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h203e, WORD);	 // Still no change.
+    host.wb_cmp(0, XGATE_XGPC,     16'h203e, WORD);      // Still no change.
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (Load BRA instruction)
-    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);			 // Execute NOP instruction
-    host.wb_cmp(0, XGATE_XGPC,	   16'h2040, WORD);	 // See Program code.
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load BRA instruction)
+    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);     // Execute NOP instruction
+    host.wb_cmp(0, XGATE_XGPC,     16'h2040, WORD);      // See Program code.
 
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step
-    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);			 // Execute BRA instruction
-    host.wb_cmp(0, XGATE_XGPC,	   16'h2064, WORD);	 // PC = Branch destination.
-							 // Load ADDL instruction
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step
+    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);     // Execute BRA instruction
+    host.wb_cmp(0, XGATE_XGPC,     16'h2064, WORD);      // PC = Branch destination.
+               // Load ADDL instruction
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (Load LDW R7 instruction)
-    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);			 // Execute ADDL instruction
-    host.wb_cmp(0, XGATE_XGPC,	   16'h2066, WORD);	 // PC + 2.
-    host.wb_cmp(0, XGATE_XGR3,	   16'h0003, WORD);	 // See Program code.(R3 <= R3 + 1)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (Load LDW R7 instruction)
+    repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);     // Execute ADDL instruction
+    host.wb_cmp(0, XGATE_XGPC,     16'h2066, WORD);      // PC + 2.
+    host.wb_cmp(0, XGATE_XGR3,     16'h0003, WORD);      // See Program code.(R3 <= R3 + 1)
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (LDW R7)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (LDW R7)
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h2068, WORD);	 // PC + 2.
-    host.wb_cmp(0, XGATE_XGR7,	   16'h00c3, WORD);	 // See Program code
+    host.wb_cmp(0, XGATE_XGPC,     16'h2068, WORD);      // PC + 2.
+    host.wb_cmp(0, XGATE_XGR7,     16'h00c3, WORD);      // See Program code
 
     repeat(1) @(posedge mstr_test_clk);
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (BRA)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (BRA)
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h2048, WORD);	 // See Program code.
+    host.wb_cmp(0, XGATE_XGPC,     16'h2048, WORD);      // See Program code.
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (STW R3)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (STW R3)
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h204a, WORD);	 // PC + 2.
-    host.wb_cmp(0, XGATE_XGR3,	   16'h0003, WORD);	 // See Program code.(R3 <= R3 + 1)
+    host.wb_cmp(0, XGATE_XGPC,     16'h204a, WORD);      // PC + 2.
+    host.wb_cmp(0, XGATE_XGR3,     16'h0003, WORD);      // See Program code.(R3 <= R3 + 1)
 
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Do a Single Step (R3 <= R3 + 1)
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Do a Single Step (R3 <= R3 + 1)
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
-    host.wb_cmp(0, XGATE_XGPC,	   16'h204c, WORD);	 // PC + 2.
+    host.wb_cmp(0, XGATE_XGPC,     16'h204c, WORD);      // PC + 2.
 
     repeat(XGATE_SS_DELAY) @(posedge mstr_test_clk);
 
     data_xgmctl = XGMCTL_XGDBGM;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Clear Debug Mode Control Bit
-							 // Should be back in Run Mode
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Clear Debug Mode Control Bit
+               // Should be back in Run Mode
     wait_irq_set(1);
     host.wb_write(1, XGATE_XGIF_0, 16'h0002, WORD);
 
     data_xgmctl = XGMCTL_XGSWEIFM | XGMCTL_XGSWEIF | XGMCTL_XGBRKIEM;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Clear Software Interrupt and BRK Interrupt Enable Bit
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Clear Software Interrupt and BRK Interrupt Enable Bit
     repeat(15) @(posedge mstr_test_clk);
 
   end
@@ -802,7 +762,7 @@ task test_inst_set;
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, test_inst_set", test_num, vector);
     repeat(1) @(posedge mstr_test_clk);
-    
+
     // Enable interrupts to RISC
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
@@ -843,50 +803,52 @@ task test_inst_set;
     host.wb_write(1, XGATE_XGIF_0, 16'h0200, WORD);
 
     host.wb_write(1, XGATE_XGSEM, 16'h5050, WORD);
-    host.wb_cmp(0, XGATE_XGSEM,	   16'h0050, WORD);   //
+    host.wb_cmp(0, XGATE_XGSEM,    16'h0050, WORD);   //
     activate_thread_sw(10);
     wait_irq_set(10);
     host.wb_write(1, XGATE_XGIF_0, 16'h0400, WORD);
 
     host.wb_write(1, XGATE_XGSEM, 16'hff00, WORD);    // clear the old settings
-    host.wb_cmp(0, XGATE_XGSEM,	   16'h0000, WORD);   //
+    host.wb_cmp(0, XGATE_XGSEM,   16'h0000, WORD);    //
     host.wb_write(1, XGATE_XGSEM, 16'ha0a0, WORD);    // Verify that bits were unlocked by RISC
-    host.wb_cmp(0, XGATE_XGSEM,	   16'h00a0, WORD);   // Verify bits were set
+    host.wb_cmp(0, XGATE_XGSEM,   16'h00a0, WORD);    // Verify bits were set
     host.wb_write(1, XGATE_XGSEM, 16'hff08, WORD);    // Try to set the bit that was left locked by the RISC
-    host.wb_cmp(0, XGATE_XGSEM,	   16'h0000, WORD);   // Verify no bits were set
+    host.wb_cmp(0, XGATE_XGSEM,   16'h0000, WORD);    // Verify no bits were set
 
     repeat(20) @(posedge mstr_test_clk);
 
     p_ram.dump_ram(0);
 
-    read_ram_cmp(16'h0000,16'haa55);
-    read_ram_cmp(16'h0004,16'h7faa);
-    read_ram_cmp(16'h0006,16'h6f55);
-    read_ram_cmp(16'h000a,16'h5f66);
-    read_ram_cmp(16'h0032,16'h1fcc);
-    read_ram_cmp(16'h0038,16'h2f99);
-    read_ram_cmp(16'h0062,16'h1faa);
-    read_ram_cmp(16'h0068,16'h2fcc);
-    read_ram_cmp(16'h0022,16'hccxx);
-    read_ram_cmp(16'h0026,16'hxx99);
-    read_ram_cmp(16'h0052,16'hxx66);
-    read_ram_cmp(16'h0058,16'h99xx);
+    read_ram_cmp(16'h0000, 16'haa55);
+    read_ram_cmp(16'h0004, 16'h7faa);
+    read_ram_cmp(16'h0006, 16'h6f55);
+    read_ram_cmp(16'h000a, 16'h5f66);
+    read_ram_cmp(16'h0032, 16'h1fcc);
+    read_ram_cmp(16'h0038, 16'h2f99);
+    read_ram_cmp(16'h0062, 16'h1faa);
+    read_ram_cmp(16'h0068, 16'h2fcc);
+    read_ram_cmp(16'h0022, 16'hccxx);
+    read_ram_cmp(16'h0026, 16'hxx99);
+    read_ram_cmp(16'h0052, 16'hxx66);
+    read_ram_cmp(16'h0058, 16'h99xx);
+    read_ram_cmp(16'h0080, 16'h9966);
+    read_ram_cmp(16'h0086, 16'h7533);
 
     data_xgmctl = 16'hff00;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Disable XGATE
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Disable XGATE
 
   end
 endtask
 
 ////////////////////////////////////////////////////////////////////////////////
-// Test SKIPJACK Application Program
+// Test instruction set
 task test_skipjack;
   begin
     $readmemh("../../../bench/verilog/skipjack.v", p_ram.ram_8);
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, test_skipjack", test_num, vector);
     repeat(1) @(posedge mstr_test_clk);
-    
+
     host.wb_write(0, DEBUG_CNTRL,  16'hFFFF, WORD);
 
     // Enable interrupts to RISC
@@ -904,7 +866,7 @@ task test_skipjack;
     // p_ram.dump_ram(16'h9000);
 
     data_xgmctl = 16'hff00;
-    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);	 // Disable XGATE
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Disable XGATE
 
   end
 endtask
@@ -918,45 +880,32 @@ task reg_test_16;
 
     system_reset;
 
-    host.wb_cmp(0, XGATE_XGMCTL,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGCHID,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGISPHI,  16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGISPLO,  16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGVBR,    16'hfe00, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_7,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_6,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_5,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_4,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_3,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_2,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_1,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGIF_0,   16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGSWT,    16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGSEM,    16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGCCR,    16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGPC,     16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGR1,     16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGR2,     16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGR3,     16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGR4,     16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGR5,     16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGR6,     16'h0000, WORD);	// verify reset
-    host.wb_cmp(0, XGATE_XGR7,     16'h0000, WORD);	// verify reset
+    host.wb_cmp(0, XGATE_XGMCTL,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGCHID,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGISPHI,  16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGISPLO,  16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGVBR,    16'hfe00, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_7,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_6,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_5,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_4,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_3,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_2,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_1,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGIF_0,   16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGSWT,    16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGSEM,    16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGCCR,    16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGPC,     16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGR1,     16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGR2,     16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGR3,     16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGR4,     16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGR5,     16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGR6,     16'h0000, WORD); // verify reset
+    host.wb_cmp(0, XGATE_XGR7,     16'h0000, WORD); // verify reset
 
-/*
-  parameter XGMCTL_XGDBGM   = 15'h2000;
-  parameter XGMCTL_XGSSM    = 15'h1000;
-  parameter XGMCTL_XGBRKIEM = 15'h0400;
-  parameter XGMCTL_XGSWEIFM = 15'h0200;
-  parameter XGMCTL_XGIEM    = 15'h0100;
-
-  parameter XGMCTL_XGDBG    = 15'h0020;
-  parameter XGMCTL_XGSS	    = 15'h0010;
-  parameter XGMCTL_XGBRKIE  = 15'h0004;
-  parameter XGMCTL_XGSWEIF  = 15'h0002;
-  parameter XGMCTL_XGIE	    = 15'h0001;
-*/
-    // Test bits in the Xgate Control Register (XGMCTL)
+   // Test bits in the Xgate Control Register (XGMCTL)
     data_xgmctl = XGMCTL_XGEM | XGMCTL_XGFRZM | XGMCTL_XGFACTM | XGMCTL_XGFRZ | XGMCTL_XGFACT | XGMCTL_XGE;
     host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, WORD);   //
     data_xgmctl = XGMCTL_XGFRZ | XGMCTL_XGFACT | XGMCTL_XGE;
@@ -1119,14 +1068,14 @@ task reg_irq;
 
     system_reset;
 
-    host.wb_cmp(0, IRQ_BYPS_0,   16'hFFFE, WORD);	// verify reset
-    host.wb_cmp(0, IRQ_BYPS_1,   16'hFFFF, WORD);	// verify reset
-    host.wb_cmp(0, IRQ_BYPS_2,   16'hFFFF, WORD);	// verify reset
-    host.wb_cmp(0, IRQ_BYPS_3,   16'hFFFF, WORD);	// verify reset
-    host.wb_cmp(0, IRQ_BYPS_4,   16'hFFFF, WORD);	// verify reset
-    host.wb_cmp(0, IRQ_BYPS_5,   16'hFFFF, WORD);	// verify reset
-    host.wb_cmp(0, IRQ_BYPS_6,   16'hFFFF, WORD);	// verify reset
-    host.wb_cmp(0, IRQ_BYPS_7,   16'hFFFF, WORD);	// verify reset
+    host.wb_cmp(0, IRQ_BYPS_0,   16'hFFFE, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_1,   16'hFFFF, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_2,   16'hFFFF, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_3,   16'hFFFF, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_4,   16'hFFFF, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_5,   16'hFFFF, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_6,   16'hFFFF, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_7,   16'hFFFF, WORD); // verify reset
 
 
     // Test the Xgate IRQ Bypass Registers (IRQ_BYPS)
@@ -1157,17 +1106,17 @@ task reg_irq;
     channel_req[3:1] = 3'b111; //
 
     q = 0;
-    // The Xgate test program is in an infinate loop for the test bench semaphore register to be changed
+    // The Xgate test program is in an infinite loop for the test bench semaphore register to be changed
     while (q == 0)  // Look for change in test bench semapore register
       begin
-	host.wb_read(1, TB_SEMPHORE, q, WORD);
+        host.wb_read(1, TB_SEMPHORE, q, WORD);
       end
-      
+
     if (q != 1)
       begin
-	$display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
+        $display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
       end
-    
+
     channel_req[1] = 1'b0; //
     repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
     host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
@@ -1177,51 +1126,51 @@ task reg_irq;
 //    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
     host.wb_write(1, XGATE_XGIF_0, 16'h0002, WORD);  // Clear Interrupt Flag from Xgate
 //    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
-    
+
     q = 0;
-    // The Xgate test program is in an infinate loop for the test bench semaphore register to be changed
+    // The Xgate test program is in an infinite loop for the test bench semaphore register to be changed
     while (q == 0)  // Look for change in test bench semapore register
       begin
-	host.wb_read(1, TB_SEMPHORE, q, WORD);
+        host.wb_read(1, TB_SEMPHORE, q, WORD);
       end
-      
+
     if (q != 2)
       begin
-	$display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
+        $display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
       end
-    
+
     channel_req[2] = 1'b0; //
     repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
     host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
     repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
-    
+
 //    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
 //    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
     host.wb_write(1, XGATE_XGIF_0, 16'h0004, WORD);  // Clear Interrupt Flag from Xgate
 //    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
-    
+
     q = 0;
-    // The Xgate test program is in an infinate loop for the test bench semaphore register to be changed
+    // The Xgate test program is in an infinite loop for the test bench semaphore register to be changed
     while (q == 0)  // Look for change in test bench semapore register
       begin
-	host.wb_read(1, TB_SEMPHORE, q, WORD);
+        host.wb_read(1, TB_SEMPHORE, q, WORD);
       end
-      
+
     if (q != 3)
       begin
-	$display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
+        $display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
       end
-    
+
     channel_req[3] = 1'b0; //
     repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
     host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
     repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
-    
+
 //    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
 //    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
     host.wb_write(1, XGATE_XGIF_0, 16'h0008, WORD);  // Clear Interrupt Flag from Xgate
 //    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
-    
+
   end
 endtask
 
@@ -1268,20 +1217,20 @@ endtask
 ////////////////////////////////////////////////////////////////////////////////
 task system_reset;  // reset system
   begin
-      repeat(1) @(posedge mstr_test_clk);
-      sync_reset = 1'b1;  // Make the sync reset 1 clock cycle long
-      #2;		  // move the async reset away from the clock edge
-      rstn = 1'b0;	  // assert async reset
-      #5;		  // Keep the async reset pulse with less than a clock cycle
-      rstn = 1'b1;	  // negate async reset
-      repeat(1) @(posedge mstr_test_clk);
-      sync_reset = 1'b0;
+    repeat(1) @(posedge mstr_test_clk);
+    sync_reset = 1'b1;  // Make the sync reset 1 clock cycle long
+    #2;     // move the async reset away from the clock edge
+    rstn = 1'b0;    // assert async reset
+    #5;     // Keep the async reset pulse with less than a clock cycle
+    rstn = 1'b1;    // negate async reset
+    repeat(1) @(posedge mstr_test_clk);
+    sync_reset = 1'b0;
 
-      $display("\nstatus: %t System Reset Task Done", $time);
-      test_num = test_num + 1;
+    $display("\nstatus: %t System Reset Task Done", $time);
+    test_num = test_num + 1;
 
-      repeat(2) @(posedge mstr_test_clk);
-   end
+    repeat(2) @(posedge mstr_test_clk);
+  end
 endtask
 
 
@@ -1315,21 +1264,21 @@ task clear_irq_flag;
   begin
       $display("Clearing Channel interrupt flag #%d", chan_val);
       if (0 < chan_val < 16)
-	host.wb_write(1, XGATE_XGIF_0, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_0, 16'hffff, WORD);
       if (15 < chan_val < 32)
-	host.wb_write(1, XGATE_XGIF_1, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_1, 16'hffff, WORD);
       if (31 < chan_val < 48)
-	host.wb_write(1, XGATE_XGIF_2, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_2, 16'hffff, WORD);
       if (47 < chan_val < 64)
-	host.wb_write(1, XGATE_XGIF_3, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_3, 16'hffff, WORD);
       if (63 < chan_val < 80)
-	host.wb_write(1, XGATE_XGIF_4, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_4, 16'hffff, WORD);
       if (79 < chan_val < 96)
-	host.wb_write(1, XGATE_XGIF_5, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_5, 16'hffff, WORD);
       if (95 < chan_val < 112)
-	host.wb_write(1, XGATE_XGIF_6, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_6, 16'hffff, WORD);
       if (111 < chan_val < 128)
-	host.wb_write(1, XGATE_XGIF_7, 16'hffff, WORD);
+        host.wb_write(1, XGATE_XGIF_7, 16'hffff, WORD);
 
       channel_req[chan_val] = 1'b0; //
       repeat(1) @(posedge mstr_test_clk);
@@ -1355,17 +1304,17 @@ endtask
 task read_ram_cmp;
   input [15:0] address;
   input [15:0] value;
-  reg	[15:0] q;
+  reg [15:0] q;
   begin
 
       // BIGENDIAN
       q = {p_ram.ram_8[address], p_ram.ram_8[address+1]};
       // "X" compares don't work, "X" in value or q always match
       if (value != q)
-	begin
-	  error_count = error_count + 1;
-	  $display("RAM Data compare error at address %h. Received %h, expected %h at time %t", address, q, value, $time);
-	end
+        begin
+          error_count = error_count + 1;
+          $display("RAM Data compare error at address %h. Received %h, expected %h at time %t", address, q, value, $time);
+        end
    end
 endtask
 
@@ -1381,22 +1330,6 @@ task wrap_up;
       $display("Simulation Failed  --- Errors =%d", error_count);
 
     $finish;
-  end
-endtask
-
-////////////////////////////////////////////////////////////////////////////////
-task send_jtag_bit;
-  input tms_val;
-  input tdi_val;
-  begin
-	jtag_tck = 0;
-        repeat(JTAG_PERIOD) @(posedge mstr_test_clk);
-	jtag_tck = 1;
-	#1;
-	jtag_tms = tms_val;
-	jtag_tdi = tdi_val;
-        repeat(JTAG_PERIOD) @(posedge mstr_test_clk);
-	jtag_tck = 0;
   end
 endtask
 
@@ -1430,93 +1363,93 @@ endmodule  // tst_bench_top
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-module bus_arbitration	#(parameter dwidth = 16,
-			  parameter awidth = 24,
-			  parameter ram_base = 0,
-			  parameter ram_size = 16'hffff,
-			  parameter slv1_base = 0,
-			  parameter slv1_size = 1,
-			  parameter slv2_base = 0,
-			  parameter slv2_size = 1,
+module bus_arbitration  #(parameter dwidth = 16,
+        parameter awidth    = 24,
+        parameter ram_base  = 0,
+        parameter ram_size  = 16'hffff,
+        parameter slv1_base = 0,
+        parameter slv1_size = 1,
+        parameter slv2_base = 0,
+        parameter slv2_size = 1,
                           parameter ram_wait_states = 0) // Number between 0 and 15
   (
   // System bus I/O
-  output reg		     sys_cyc,
-  output reg		     sys_stb,
-  output reg		     sys_we,
+  output reg                 sys_cyc,
+  output reg                 sys_stb,
+  output reg                 sys_we,
   output reg [dwidth/8 -1:0] sys_sel,
   output reg [awidth   -1:0] sys_adr,
   output reg [dwidth   -1:0] sys_dout,
   output     [dwidth   -1:0] sys_din,
 
   // Host bus I/O
-  output		     host_ack,
+  output         host_ack,
   output     [dwidth   -1:0] host_dout,
-  input			     host_cyc,
-  input			     host_stb,
-  input			     host_we,
-  input	     [dwidth/8 -1:0] host_sel,
-  input	     [awidth   -1:0] host_adr,
-  input	     [dwidth   -1:0] host_din,
+  input          host_cyc,
+  input          host_stb,
+  input          host_we,
+  input      [dwidth/8 -1:0] host_sel,
+  input      [awidth   -1:0] host_adr,
+  input      [dwidth   -1:0] host_din,
 
   // Alternate Bus Master #1 Bus I/O
-  output		     alt1_ack,
+  output         alt1_ack,
   output     [dwidth   -1:0] alt1_dout,
-  input			     alt1_cyc,
-  input			     alt1_stb,
-  input			     alt1_we,
-  input	     [dwidth/8 -1:0] alt1_sel,
-  input	     [awidth   -1:0] alt1_adr,
-  input	     [dwidth   -1:0] alt1_din,
+  input          alt1_cyc,
+  input          alt1_stb,
+  input          alt1_we,
+  input      [dwidth/8 -1:0] alt1_sel,
+  input      [awidth   -1:0] alt1_adr,
+  input      [dwidth   -1:0] alt1_din,
 
   // System RAM memory signals
-  output		     ram_sel,
-  input	     [dwidth   -1:0] ram_dout,
+  output         ram_sel,
+  input      [dwidth   -1:0] ram_dout,
 
   // Slave #1 Bus I/O
-  output		     slv1_stb,
-  input			     slv1_ack,
-  input	     [dwidth   -1:0] slv1_din,
+  output         slv1_stb,
+  input          slv1_ack,
+  input      [dwidth   -1:0] slv1_din,
 
   // Slave #2 Bus I/O
-  output		     slv2_stb,
-  input			     slv2_ack,
-  input	     [dwidth   -1:0] slv2_din,
+  output         slv2_stb,
+  input          slv2_ack,
+  input      [dwidth   -1:0] slv2_din,
 
   // Miscellaneous
-  input			     host_clk,
-  input			     risc_clk,
-  input			     rst,  // No Connect
-  input			     err,  // No Connect
-  input			     rty   // No Connect
+  input          host_clk,
+  input          risc_clk,
+  input          rst,       // No Connect
+  input          err,       // No Connect
+  input          rty        // No Connect
   );
 
   // States for bus arbitration
-  parameter [1:0] BUS_IDLE = 2'b00,
-		  HOST_OWNS = 2'b10,
-		  RISC_OWNS = 2'b11;
+  parameter [1:0] BUS_IDLE  = 2'b00,
+                  HOST_OWNS = 2'b10,
+                  RISC_OWNS = 2'b11;
 
-  parameter max_bus_hold = 5;	 // Max number of cycles any bus master can hold the system bus
+  parameter max_bus_hold = 5;  // Max number of cycles any bus master can hold the system bus
   //////////////////////////////////////////////////////////////////////////////
   //
   // Local Wires and Registers
   //
-  wire	     ram_ack;	     //
-  wire	     any_ack;	     //
-  reg	     host_wait;	     // Host bus in wait state, Hold the bus till the transaction complets
+  wire       ram_ack;        //
+  wire       any_ack;        //
+  reg        host_wait;      // Host bus in wait state, Hold the bus till the transaction complets
   reg  [3:0] host_cycle_cnt; // Used to count the cycle the host and break the lock if the risc needs access
 
-  wire	     risc_lock;	     // RISC has the slave bus
-  reg	     risc_wait;	     // RISC bus in wait state, Hold the bus till the transaction complets
+  wire       risc_lock;      // RISC has the slave bus
+  reg        risc_wait;      // RISC bus in wait state, Hold the bus till the transaction complets
   reg  [3:0] risc_cycle_cnt; // Used to count the cycle the risc and break the lock if the host needs access
 
   reg  [1:0] owner_state;
   reg  [1:0] owner_ns;
 
-  wire	     host_timeout;
-  wire	     risc_timeout;
+  wire       host_timeout;
+  wire       risc_timeout;
 
-  wire	     ram_ack_dly;    // Delayed bus ack to simulate bus wait states
+  wire       ram_ack_dly;    // Delayed bus ack to simulate bus wait states
   reg  [3:0] ack_dly_cnt;    // Counter to delay bus ack to master modules
 
 
@@ -1531,26 +1464,26 @@ module bus_arbitration	#(parameter dwidth = 16,
   always @*
     case (owner_state)
       BUS_IDLE :
-	begin
-	  if (host_cyc)
-	    owner_ns = HOST_OWNS;
-	  else if (alt1_cyc)
-	    owner_ns = RISC_OWNS;
-	end
+        begin
+          if (host_cyc)
+            owner_ns = HOST_OWNS;
+          else if (alt1_cyc)
+            owner_ns = RISC_OWNS;
+        end
       HOST_OWNS :
-	begin
-	  if (!host_cyc && !alt1_cyc)
-	    owner_ns = BUS_IDLE;
-	  else if (alt1_cyc && (!host_cyc || host_timeout))
-	    owner_ns = RISC_OWNS;
-	end
+        begin
+          if (!host_cyc && !alt1_cyc)
+            owner_ns = BUS_IDLE;
+          else if (alt1_cyc && (!host_cyc || host_timeout))
+            owner_ns = RISC_OWNS;
+        end
       RISC_OWNS :
-	begin
-	  if (!host_cyc && !alt1_cyc)
-	    owner_ns = BUS_IDLE;
-	  else if (host_cyc && (!alt1_cyc || risc_timeout))
-	    owner_ns = HOST_OWNS;
-	end
+        begin
+          if (!host_cyc && !alt1_cyc)
+            owner_ns = BUS_IDLE;
+          else if (host_cyc && (!alt1_cyc || risc_timeout))
+            owner_ns = HOST_OWNS;
+        end
       default : owner_ns = BUS_IDLE;
     endcase
 
@@ -1564,7 +1497,7 @@ module bus_arbitration	#(parameter dwidth = 16,
       host_cycle_cnt <= 0;
     else if ((owner_state != HOST_OWNS) || !alt1_cyc)
       host_cycle_cnt <= 0;
-    else if (&host_cycle_cnt && !host_timeout)	// Don't allow rollover
+    else if (&host_cycle_cnt && !host_timeout)  // Don't allow rollover
       host_cycle_cnt <= host_cycle_cnt;
     else if ((owner_state == HOST_OWNS) && alt1_cyc)
       host_cycle_cnt <= host_cycle_cnt + 1'b1;
@@ -1575,7 +1508,7 @@ module bus_arbitration	#(parameter dwidth = 16,
       risc_cycle_cnt <= 0;
     else if ((owner_state != RISC_OWNS) || !host_cyc)
       risc_cycle_cnt <= 0;
-    else if (&risc_cycle_cnt && !risc_timeout)	// Don't allow rollover
+    else if (&risc_cycle_cnt && !risc_timeout)  // Don't allow rollover
       risc_cycle_cnt <= risc_cycle_cnt;
     else if ((owner_state == RISC_OWNS) && host_cyc)
       risc_cycle_cnt <= risc_cycle_cnt + 1'b1;
@@ -1592,8 +1525,8 @@ module bus_arbitration	#(parameter dwidth = 16,
 
   // Address decoding for Testbench access to RAM
   assign ram_sel = sys_cyc && sys_stb && !(slv1_stb || slv2_stb) &&
-		   (sys_adr >= ram_base) &&
-		   (sys_adr < (ram_base + ram_size));
+                   (sys_adr >= ram_base) &&
+                   (sys_adr < (ram_base + ram_size));
 
   // Throw in some wait states from the memory
   always @(posedge host_clk)
@@ -1608,48 +1541,48 @@ module bus_arbitration	#(parameter dwidth = 16,
 
   // Create the System Read Data Bus from the Slave output data buses
   assign sys_din = ({dwidth{1'b1}} & slv1_din) |
-		   ({dwidth{slv2_stb}} & slv2_din) |
-		   ({dwidth{ram_sel}}  & ram_dout);
+       ({dwidth{slv2_stb}} & slv2_din) |
+       ({dwidth{ram_sel}}  & ram_dout);
 
   // Mux for System Bus access
   always @*
     case (owner_state)
       BUS_IDLE :
-	begin
-	  sys_cyc   = 0;
-	  sys_stb   = 0;
-	  sys_we    = 0;
-	  sys_sel   = 0;
-	  sys_adr   = 0;
-	  sys_dout  = 0;
-	end
+        begin
+          sys_cyc   = 0;
+          sys_stb   = 0;
+          sys_we    = 0;
+          sys_sel   = 0;
+          sys_adr   = 0;
+          sys_dout  = 0;
+        end
       HOST_OWNS :
-	begin
-	  sys_cyc   = host_cyc;
-	  sys_stb   = host_stb;
-	  sys_we    = host_we;
-	  sys_sel   = host_sel;
-	  sys_adr   = host_adr;
-	  sys_dout  = host_din;
-	end
+        begin
+          sys_cyc   = host_cyc;
+          sys_stb   = host_stb;
+          sys_we    = host_we;
+          sys_sel   = host_sel;
+          sys_adr   = host_adr;
+          sys_dout  = host_din;
+        end
       RISC_OWNS :
-	begin
-	  sys_cyc   = alt1_cyc;
-	  sys_stb   = alt1_stb;
-	  sys_we    = alt1_we;
-	  sys_sel   = alt1_sel;
-	  sys_adr   = alt1_adr;
-	  sys_dout  = alt1_din;
-	end
+        begin
+          sys_cyc   = alt1_cyc;
+          sys_stb   = alt1_stb;
+          sys_we    = alt1_we;
+          sys_sel   = alt1_sel;
+          sys_adr   = alt1_adr;
+          sys_dout  = alt1_din;
+        end
       default :
-	begin
-	  sys_cyc   = 0;
-	  sys_stb   = 0;
-	  sys_we    = 0;
-	  sys_sel   = 0;
-	  sys_adr   = 0;
-	  sys_dout  = 0;
-	end
+        begin
+          sys_cyc   = 0;
+          sys_stb   = 0;
+          sys_we    = 0;
+          sys_sel   = 0;
+          sys_adr   = 0;
+          sys_dout  = 0;
+        end
     endcase
 
 endmodule   // bus_arbitration
@@ -1658,38 +1591,38 @@ endmodule   // bus_arbitration
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
-		  parameter MAX_CHANNEL = 127,    // Max XGATE Interrupt Channel Number
-		  parameter DWIDTH = 16)	  // Data bus width
+                  parameter MAX_CHANNEL  = 127,   // Max XGATE Interrupt Channel Number
+                  parameter DWIDTH       = 16)    // Data bus width
   (
   // Wishbone Signals
-  output [DWIDTH-1:0] wb_dat_o,	    // databus output
-  output	      wb_ack_o,	    // bus cycle acknowledge output
-  input		      wb_clk_i,	    // master clock input
-  input		      wb_rst_i,	    // synchronous active high reset
-  input		      arst_i,	    // asynchronous reset
-  input		[3:0] wb_adr_i,	    // lower address bits
-  input	 [DWIDTH-1:0] wb_dat_i,	    // databus input
-  input		      wb_we_i,	    // write enable input
-  input		      wb_stb_i,	    // stobe/core select signal
-  input		      wb_cyc_i,	    // valid bus cycle input
-  input		[1:0] wb_sel_i,	    // Select byte in word bus transaction
+  output [DWIDTH-1:0] wb_dat_o,     // databus output
+  output              wb_ack_o,     // bus cycle acknowledge output
+  input               wb_clk_i,     // master clock input
+  input               wb_rst_i,     // synchronous active high reset
+  input               arst_i,       // asynchronous reset
+  input        [ 3:0] wb_adr_i,     // lower address bits
+  input  [DWIDTH-1:0] wb_dat_i,     // databus input
+  input               wb_we_i,      // write enable input
+  input               wb_stb_i,     // stobe/core select signal
+  input               wb_cyc_i,     // valid bus cycle input
+  input        [ 1:0] wb_sel_i,     // Select byte in word bus transaction
   // Slave unique IO Signals
-  output reg	          error_pulse,  // Error detected output pulse
-  output reg	          ack_pulse,    // Thread ack output pulse
+  output reg              error_pulse,  // Error detected output pulse
+  output reg              ack_pulse,    // Thread ack output pulse
   output reg [DWIDTH-1:0] brkpt_cntl,   // Break Point Control reg
 
-  output              brk_pt,       // Break point
-  input        [15:0] x_address,    // XGATE WISHBONE Master bus address
-  input [MAX_CHANNEL:1] xgif,       // XGATE Interrupt Flag to Host
-  input	       [19:0] vector
+  output                brk_pt,       // Break point
+  input          [15:0] x_address,    // XGATE WISHBONE Master bus address
+  input [MAX_CHANNEL:1] xgif,         // XGATE Interrupt Flag to Host
+  input          [19:0] vector
   );
 
-  wire			async_rst_b;   // Asyncronous reset
-  wire			sync_reset;    // Syncronous reset
+  wire      async_rst_b;   // Asyncronous reset
+  wire      sync_reset;    // Syncronous reset
 
   // Wishbone Bus interface
   // registers
-  reg		    bus_wait_state;  // Holdoff wb_ack_o for one clock to add wait state
+  reg               bus_wait_state;  // Holdoff wb_ack_o for one clock to add wait state
   reg  [DWIDTH-1:0] rd_data_mux;     // Pseudo Register, WISHBONE Read Data Mux
   reg  [DWIDTH-1:0] rd_data_reg;     // Latch for WISHBONE Read Data
 
@@ -1706,9 +1639,9 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   event channel_err_wrt;
 
   // Wires
-  wire	 module_sel;	  // This module is selected for bus transaction
-  wire	 wb_wacc;	  // WISHBONE Write Strobe
-  wire	 wb_racc;	  // WISHBONE Read Access (Clock gating signal)
+  wire   module_sel;    // This module is selected for bus transaction
+  wire   wb_wacc;       // WISHBONE Write Strobe
+  wire   wb_racc;       // WISHBONE Read Access (Clock gating signal)
 
   //
   // module body
@@ -1728,15 +1661,15 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   //  Accesses in back to back clock cycles are not possable.
   always @(posedge wb_clk_i or negedge arst_i)
     if (!arst_i)
-      bus_wait_state <=	 1'b0;
+      bus_wait_state <=  1'b0;
     else if (wb_rst_i)
-      bus_wait_state <=	 1'b0;
+      bus_wait_state <=  1'b0;
     else
-      bus_wait_state <=	 module_sel && !bus_wait_state;
+      bus_wait_state <=  module_sel && !bus_wait_state;
 
   // assign data read bus -- DAT_O
   always @(posedge wb_clk_i)
-    if ( wb_racc )		       // Clock gate for power saving
+    if ( wb_racc )           // Clock gate for power saving
       rd_data_reg <= rd_data_mux;
 
   // WISHBONE Read Data Mux
@@ -1763,60 +1696,60 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   always @(posedge wb_clk_i or negedge arst_i)
     begin
       if (!arst_i)
-	begin
-	  check_point_reg <= 0;
-	  channel_ack_reg <= 0;
-	  channel_err_reg <= 0;
-	  ack_pulse	  <= 0;
-	  error_pulse	  <= 0;
-	  brkpt_cntl      <= 0;
-	  brkpt_addr_reg  <= 0;
-	  tb_semaphr_reg  <= 0;
-	end
+        begin
+          check_point_reg <= 0;
+          channel_ack_reg <= 0;
+          channel_err_reg <= 0;
+          ack_pulse       <= 0;
+          error_pulse     <= 0;
+          brkpt_cntl      <= 0;
+          brkpt_addr_reg  <= 0;
+          tb_semaphr_reg  <= 0;
+        end
       else if (wb_wacc)
-	case (wb_adr_i) // synopsys parallel_case
-	   3'b000 :
-	     begin
-	       check_point_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : check_point_reg[ 7:0];
-	       check_point_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : check_point_reg[15:8];
-	       -> check_point_wrt;
-	     end
-	   3'b001 :
-	     begin
-	       channel_ack_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : channel_ack_reg[ 7:0];
-	       channel_ack_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : channel_ack_reg[15:8];
-	       ack_pulse <= 1;
-	       -> channel_ack_wrt;
-	     end
-	   3'b010 :
-	     begin
-	       channel_err_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : channel_err_reg[ 7:0];
-	       channel_err_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : channel_err_reg[15:8];
-	       error_pulse <= 1'b1;
-	       -> channel_err_wrt;
-	     end
-	   3'b011 :
-	     begin
-	       brkpt_cntl[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : brkpt_cntl[ 7:0];
-	       brkpt_cntl[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : brkpt_cntl[15:8];
-	     end
-	   3'b100 :
-	     begin
-	       brkpt_addr_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : brkpt_addr_reg[ 7:0];
-	       brkpt_addr_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : brkpt_addr_reg[15:8];
-	     end
-	   3'b101 :
-	     begin
-	       tb_semaphr_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : tb_semaphr_reg[ 7:0];
-	       tb_semaphr_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : tb_semaphr_reg[15:8];
-	     end
-	   default: ;
-	endcase
+  case (wb_adr_i) // synopsys parallel_case
+     3'b000 :
+       begin
+         check_point_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : check_point_reg[ 7:0];
+         check_point_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : check_point_reg[15:8];
+         -> check_point_wrt;
+       end
+     3'b001 :
+       begin
+         channel_ack_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : channel_ack_reg[ 7:0];
+         channel_ack_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : channel_ack_reg[15:8];
+         ack_pulse <= 1;
+         -> channel_ack_wrt;
+       end
+     3'b010 :
+       begin
+         channel_err_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : channel_err_reg[ 7:0];
+         channel_err_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : channel_err_reg[15:8];
+         error_pulse <= 1'b1;
+         -> channel_err_wrt;
+       end
+     3'b011 :
+       begin
+         brkpt_cntl[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : brkpt_cntl[ 7:0];
+         brkpt_cntl[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : brkpt_cntl[15:8];
+       end
+     3'b100 :
+       begin
+         brkpt_addr_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : brkpt_addr_reg[ 7:0];
+         brkpt_addr_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : brkpt_addr_reg[15:8];
+       end
+     3'b101 :
+       begin
+         tb_semaphr_reg[ 7:0] <= wb_sel_i[0] ? wb_dat_i[ 7:0] : tb_semaphr_reg[ 7:0];
+         tb_semaphr_reg[15:8] <= wb_sel_i[1] ? wb_dat_i[15:8] : tb_semaphr_reg[15:8];
+       end
+     default: ;
+  endcase
       else
-	begin
-	  ack_pulse   <= 0;
-	  error_pulse <= 1'b0;
-	end
+  begin
+    ack_pulse   <= 0;
+    error_pulse <= 1'b0;
+  end
     end
 
   always @check_point_wrt
@@ -1828,7 +1761,7 @@ module tb_slave #(parameter SINGLE_CYCLE = 1'b0,  // No bus wait state added
   always @channel_err_wrt
     begin
       #1;
-      $display("\n ------ !!!!! Software Checkpoint Error #%d -- at vector=%d\n	 -------", channel_err_reg, vector);
+      $display("\n ------ !!!!! Software Checkpoint Error #%d -- at vector=%d\n  -------", channel_err_reg, vector);
     end
 
 
@@ -1837,7 +1770,7 @@ endmodule // tb_slave
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
+module tb_debug #(parameter DWIDTH = 16,    // Data bus width
                   parameter BREAK_CAPT_0 = 0,
                   parameter BREAK_CAPT_1 = 0,
                   parameter BREAK_CAPT_2 = 0,
@@ -1846,12 +1779,12 @@ module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
                   parameter BREAK_CAPT_5 = 0,
                   parameter BREAK_CAPT_6 = 0,
                   parameter BREAK_CAPT_7 = 0
-		  )
+      )
   (
   // Wishbone Signals
-  input		      arst_i,	    // asynchronous reset
+  input               arst_i,     // asynchronous reset
   input               risc_clk,
-  input	 [DWIDTH-1:0] brkpt_cntl    // databus input
+  input  [DWIDTH-1:0] brkpt_cntl  // databus input
   );
 
   wire [15:0] next_pc = xgate.risc.program_counter;
@@ -1862,7 +1795,7 @@ module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
   wire [15:0] x5 = xgate.risc.xgr5;
   wire [15:0] x6 = xgate.risc.xgr6;
   wire [15:0] x7 = xgate.risc.xgr7;
-  
+
   reg [15:0] cap_x1;
   reg [15:0] cap_x2;
   reg [15:0] cap_x3;
@@ -1870,7 +1803,7 @@ module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
   reg [15:0] cap_x5;
   reg [15:0] cap_x6;
   reg [15:0] cap_x7;
-  
+
   reg [15:0] break_addr_0;
   reg [15:0] break_addr_1;
   reg [15:0] break_addr_2;
@@ -1879,11 +1812,11 @@ module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
   reg [15:0] break_addr_5;
   reg [15:0] break_addr_6;
   reg [15:0] break_addr_7;
-  
+
   reg detect_addr;
-  
+
   wire trigger, trigger0, trigger1, trigger3, trigger4, trigger5, trigger6, trigger7;
-  
+
   initial
     begin
       break_addr_0 = 0;
@@ -1894,7 +1827,7 @@ module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
       break_addr_5 = 0;
       break_addr_6 = 0;
       break_addr_7 = 0;
-      repeat(4) @(posedge risc_clk); // Note: !! This should come after code load
+      repeat(4) @(posedge risc_clk);
       break_addr_0 = {p_ram.ram_8[BREAK_CAPT_0], p_ram.ram_8[BREAK_CAPT_0+1]};
       break_addr_1 = {p_ram.ram_8[BREAK_CAPT_1], p_ram.ram_8[BREAK_CAPT_1+1]};
       break_addr_2 = {p_ram.ram_8[BREAK_CAPT_2], p_ram.ram_8[BREAK_CAPT_2+1]};
@@ -1904,7 +1837,7 @@ module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
       break_addr_6 = {p_ram.ram_8[BREAK_CAPT_6], p_ram.ram_8[BREAK_CAPT_6+1]};
       break_addr_7 = {p_ram.ram_8[BREAK_CAPT_7], p_ram.ram_8[BREAK_CAPT_7+1]};
     end
-  
+
   assign trigger0 = (next_pc === break_addr_0) && brkpt_cntl[ 8];
   assign trigger1 = (next_pc === break_addr_1) && brkpt_cntl[ 9];
   assign trigger2 = (next_pc === break_addr_2) && brkpt_cntl[10];
@@ -1913,32 +1846,32 @@ module tb_debug #(parameter DWIDTH = 16,	  // Data bus width
   assign trigger5 = (next_pc === break_addr_5) && brkpt_cntl[13];
   assign trigger6 = (next_pc === break_addr_6) && brkpt_cntl[14];
   assign trigger7 = (next_pc === break_addr_7) && brkpt_cntl[15];
-  
+
   assign trigger = brkpt_cntl[0] &
                    (trigger0 | trigger1 | trigger2 | trigger3 | trigger4 | trigger5 | trigger6 | trigger7);
-  
+
   always @(posedge risc_clk or negedge arst_i)
     begin
       if (!arst_i)
-	begin
-	  cap_x1 <= 0;
-	  cap_x2 <= 0;
-	  cap_x3 <= 0;
-	  cap_x4 <= 0;
-	  cap_x5 <= 0;
-	  cap_x6 <= 0;
-	  cap_x7 <= 0;
-	end
+        begin
+          cap_x1 <= 0;
+          cap_x2 <= 0;
+          cap_x3 <= 0;
+          cap_x4 <= 0;
+          cap_x5 <= 0;
+          cap_x6 <= 0;
+          cap_x7 <= 0;
+        end
       else if (trigger)
-	begin
-	  cap_x1 <= x1;
-	  cap_x2 <= x2;
-	  cap_x3 <= x3;
-	  cap_x4 <= x4;
-	  cap_x5 <= x5;
-	  cap_x6 <= x6;
-	  cap_x7 <= x7;
-	end
+        begin
+          cap_x1 <= x1;
+          cap_x2 <= x2;
+          cap_x3 <= x3;
+          cap_x4 <= x4;
+          cap_x5 <= x5;
+          cap_x6 <= x6;
+          cap_x7 <= x7;
+        end
     end
 
 

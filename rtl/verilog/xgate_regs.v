@@ -230,47 +230,47 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
     begin
       k = 1;   // WISHBONE Bus bit counter [15:0]
       for (j = 1; j <= 127; j = j + 1)
-	begin
-	  if (j <= MAX_CHANNEL)
-	    begin
-	      if ((j >= 0) && (j < 8))
-		irq_bypass_d[j] = write_irw_en_0[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 8) && (j < 16))
-		irq_bypass_d[j] = write_irw_en_0[1] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 16) && (j < 24))
-		irq_bypass_d[j] = write_irw_en_1[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 24) && (j < 32))
-		irq_bypass_d[j] = write_irw_en_1[1] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 32) && (j < 40))
-		irq_bypass_d[j] = write_irw_en_2[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 40) && (j < 48))
-		irq_bypass_d[j] = write_irw_en_2[1] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 48) && (j < 56))
-		irq_bypass_d[j] = write_irw_en_3[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 56) && (j < 64))
-		irq_bypass_d[j] = write_irw_en_3[1] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 64) && (j < 72))
-		irq_bypass_d[j] = write_irw_en_4[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 72) && (j < 80))
-		irq_bypass_d[j] = write_irw_en_4[1] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 80) && (j < 88))
-		irq_bypass_d[j] = write_irw_en_5[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 88) && (j < 96))
-		irq_bypass_d[j] = write_irw_en_5[1] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 96) && (j < 104))
-		irq_bypass_d[j] = write_irw_en_6[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 104) && (j < 112))
-		irq_bypass_d[j] = write_irw_en_6[1] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 112) && (j < 120))
-		irq_bypass_d[j] = write_irw_en_7[0] ? write_bus[k] : irq_bypass[j];
-	      if ((j >= 120) && (j < 128))
-		irq_bypass_d[j] = write_irw_en_7[1] ? write_bus[k] : irq_bypass[j];
-	    end
-	  else
-	    irq_bypass_d[j]  = 1'b0;
-	k = k + 1;
-	if (k > 15)
-	  k = 0;
+        begin
+          if (j <= MAX_CHANNEL)
+            begin
+              if ((j >= 0) && (j < 8))
+                irq_bypass_d[j] = write_irw_en_0[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 8) && (j < 16))
+                irq_bypass_d[j] = write_irw_en_0[1] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 16) && (j < 24))
+                irq_bypass_d[j] = write_irw_en_1[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 24) && (j < 32))
+                irq_bypass_d[j] = write_irw_en_1[1] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 32) && (j < 40))
+                irq_bypass_d[j] = write_irw_en_2[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 40) && (j < 48))
+                irq_bypass_d[j] = write_irw_en_2[1] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 48) && (j < 56))
+                irq_bypass_d[j] = write_irw_en_3[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 56) && (j < 64))
+                irq_bypass_d[j] = write_irw_en_3[1] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 64) && (j < 72))
+               irq_bypass_d[j] = write_irw_en_4[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 72) && (j < 80))
+                irq_bypass_d[j] = write_irw_en_4[1] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 80) && (j < 88))
+                irq_bypass_d[j] = write_irw_en_5[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 88) && (j < 96))
+                irq_bypass_d[j] = write_irw_en_5[1] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 96) && (j < 104))
+                irq_bypass_d[j] = write_irw_en_6[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 104) && (j < 112))
+                irq_bypass_d[j] = write_irw_en_6[1] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 112) && (j < 120))
+                irq_bypass_d[j] = write_irw_en_7[0] ? write_bus[k] : irq_bypass[j];
+              if ((j >= 120) && (j < 128))
+                irq_bypass_d[j] = write_irw_en_7[1] ? write_bus[k] : irq_bypass[j];
+            end
+          else
+            irq_bypass_d[j]  = 1'b0;
+        k = k + 1;
+        if (k > 15)
+        k = 0;
       end
     end
 
@@ -283,7 +283,7 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
       irq_bypass  <= irq_bypass_d;
 
   // Alias the register name to the output pin name so only the used bit are carried out
-  assign chan_bypass = irq_bypass[MAX_CHANNEL:1]; 
+  assign chan_bypass = irq_bypass[MAX_CHANNEL:1];
 
 endmodule  // xgate_regs
 

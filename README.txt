@@ -3,6 +3,42 @@
 ////////////////////////////////////////////////////////////////////////////////
 // SVN tag: None
 
+November 21,2011
+RTL - No Change
+
+Code cleanup, converted tabs to blanks. Added code to instruction test to cover
+a few base instructions that weren't being tested. Changed instance name of
+semaphore registers from "bit" to "sbit" to be compatible with System Verilog.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+My current idea list for enhancements is:
+
+Add to the software apps:
+a - It should be possible to write software to emulate some simple hardware modules such as I2C, SPI and UART.
+b - DMA controller software
+c - Find open source C compiler for Xgate
+d - ???
+
+It would be interesting to integrate the Xgate with some of the other OpenCores peripheral modules. Again there would be some related software development for verification. The ultimate goal would be to to create full-blown drivers for these modules.
+a - Integrate Xgate with I2C controller and develop software to support SMBus and PMBus protocols.
+b - ???
+
+Another interesting integration project would be to build a processor core with the OpenRISC as the host and the Xgate working as a co-processor. Some type of memory controller module would need to be developed so the Xgate could have some semiprivate RAM to run code from. Also a separate slave bus would be nice to isolate peripherals that could be managed mostly by the Xgate. Some software development would be required for both OpenRISC and Xgate to verify the functionality.
+
+Develop hardware debug module. Survey Freescale debugger and other debugger specifications and develop hardware debugger/specification that can optionally be connected to the Xgate module. The debugger should be broken into at least two modules, one the actual debug interface and the second a flexible serial interface adaptor. There are already JTAG modules in the design database that I had thought might be used as one possible interface to the debugger. (A great project on it's own would be to develop a JTAG module that meets the latest JTAG specification including the single wire interface.)
+
+Upgrade Xgate to the enhanced version that Freescale now ships. This includes an alternate register set so the Xgate can switch in a few cycles from a low priority interrupt to a higher priority interrupt and then return to the low priority interrupt process.
+
+Improvements to the architecture to support high speed operation. The current code was developed in a piecemeal fashion without much pre-planing on the data path from/to RAM and the internal registers.
+
+System Verilog class based constrained random verification environment.
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// SVN tag: None
+
 August 11,2010
 RTL - No Change
 
