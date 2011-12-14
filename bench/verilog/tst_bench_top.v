@@ -45,11 +45,14 @@ module tst_bench_top();
 
   parameter MAX_CHANNEL   = 127;    // Max XGATE Interrupt Channel Number
   parameter STOP_ON_ERROR = 1'b0;
-  parameter MAX_VECTOR    = 12_000;
+  parameter MAX_VECTOR    = 22_000;
 
   parameter L_BYTE = 2'b01;
   parameter H_BYTE = 2'b10;
   parameter WORD   = 2'b11;
+
+  parameter TB_ADDR_WIDTH = 24;  // Testbench address bus width
+  parameter TB_DATA_WIDTH = 16;
 
 
   // Name Address Locations
@@ -99,6 +102,7 @@ module tst_bench_top();
   parameter XGMCTL_XGSWEIF  = 15'h0002;
   parameter XGMCTL_XGIE     = 15'h0001;
 
+  // Define Address locations used by the testbench
   parameter CHECK_POINT     = 16'h8000;
   parameter CHANNEL_ACK     = CHECK_POINT + 2;
   parameter CHANNEL_ERR     = CHECK_POINT + 4;
@@ -151,7 +155,6 @@ module tst_bench_top();
 
   reg       rstn;
   reg       sync_reset;
-  reg       por_reset_b;
   reg       scantestmode;
 
   reg  [MAX_CHANNEL:1] channel_req;  // XGATE Interrupt inputs
@@ -166,7 +169,7 @@ module tst_bench_top();
   wire [15:0] wbm_adr_o;   // WISHBONE Master Mode address output from XGATE
   wire [ 1:0] wbm_sel_o;
 
-  reg       mem_wait_state_enable;
+  reg         mem_wait_state_enable;
 
   wire [15:0] tb_ram_out;
 
@@ -228,7 +231,6 @@ module tst_bench_top();
       mstr_test_clk = 0;
       vector        = 0;
       test_num      = 0;
-      por_reset_b   = 0;
       scantestmode  = 0;
       error_count   = 0;
       mem_wait_state_enable = 0;
@@ -306,7 +308,7 @@ module tst_bench_top();
   );
 
   // hookup wishbone master model
-  wb_master_model #(.dwidth(16), .awidth(24))
+  wb_master_model #(.dwidth(TB_DATA_WIDTH), .awidth(TB_ADDR_WIDTH))
     host(
     // Outputs
     .cyc( host_cyc ),
@@ -324,8 +326,8 @@ module tst_bench_top();
     .rty( 1'b0 )
   );
 
-  bus_arbitration  #(.dwidth(16),
-                     .awidth(24),
+  bus_arbitration  #(.dwidth(TB_DATA_WIDTH),
+                     .awidth(TB_ADDR_WIDTH),
                      .ram_base(0),
                      .ram_size(17'h10000),
                      .slv1_base(XGATE_BASE),
@@ -386,8 +388,8 @@ module tst_bench_top();
     xgate(
     // Wishbone slave interface
     .wbs_clk_i( mstr_test_clk ),
-    .wbs_rst_i( 1'b0 ),       // sync_reset
-    .arst_i( rstn ),          // async resetn
+    .wbs_rst_i( sync_reset ),       // sync_reset
+    .arst_i( rstn ),                // async resetn
     .wbs_adr_i( sys_adr[6:1] ),
     .wbs_dat_i( sys_dout ),
     .wbs_dat_o( xgate_s_dout ),
@@ -470,19 +472,13 @@ initial
     $display("\nstatus at time: %t Testbench started", $time);
 
     // reset system
-    rstn = 1'b1;        // negate reset
-    channel_req = 1;    //
-    repeat(1) @(posedge mstr_test_clk);
-    sync_reset = 1'b1;  // Make the sync reset 1 clock cycle long
-    #2;                 // move the async reset away from the clock edge
-    rstn = 1'b0;        // assert async reset
-    #5;                 // Keep the async reset pulse with less than a clock cycle
-    rstn = 1'b1;        // negate async reset
-    por_reset_b = 1'b1;
+    rstn        <= 1'b0; // negate reset
+    channel_req <= 1;    //
+    sync_reset  <= 1'b0; // Don't do sync reset
+    #5;                  // Keep the async reset pulse with less than a clock cycle
+    rstn = 1'b1;         // negate async reset
     channel_req = 0;    //
     repeat(1) @(posedge mstr_test_clk);
-    sync_reset = 1'b0;
-    channel_req = 0;    //
 
     $display("\nstatus at time: %t done reset", $time);
 
@@ -499,6 +495,8 @@ initial
     reg_test_16;
 
     reg_irq;
+
+    sync_reset_test;
 
     // host_ram;
 
@@ -766,42 +764,52 @@ task test_inst_set;
     // Enable interrupts to RISC
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
+    // Test Shift instructions
     activate_thread_sw(1);
     wait_irq_set(1);
     host.wb_write(1, XGATE_XGIF_0, 16'h0002, WORD);
 
+    // Test Logical Byte wide instructions
     activate_thread_sw(2);
     wait_irq_set(2);
     host.wb_write(1, XGATE_XGIF_0, 16'h0004, WORD);
 
+    // Test Logical Word Wide instructions
     activate_thread_sw(3);
     wait_irq_set(3);
     host.wb_write(1, XGATE_XGIF_0, 16'h0008, WORD);
 
+    // Test Bit Field instructions
     activate_thread_sw(4);
     wait_irq_set(4);
     host.wb_write(1, XGATE_XGIF_0, 16'h0010, WORD);
 
+    // Test Branch instructions
     activate_thread_sw(5);
     wait_irq_set(5);
     host.wb_write(1, XGATE_XGIF_0, 16'h0020, WORD);
 
+    // Test Subroutine Call and return instructions
     activate_thread_sw(6);
     wait_irq_set(6);
     host.wb_write(1, XGATE_XGIF_0, 16'h0040, WORD);
 
+    // Test 16 bit Addition and Substract instructions
     activate_thread_sw(7);
     wait_irq_set(7);
     host.wb_write(1, XGATE_XGIF_0, 16'h0080, WORD);
 
+    // Test 8 bit Addition and Substract instructions
     activate_thread_sw(8);
     wait_irq_set(8);
     host.wb_write(1, XGATE_XGIF_0, 16'h0100, WORD);
 
+    // Test Load and Store instructions
     activate_thread_sw(9);
     wait_irq_set(9);
     host.wb_write(1, XGATE_XGIF_0, 16'h0200, WORD);
 
+    // Test Semaphore instructions
     host.wb_write(1, XGATE_XGSEM, 16'h5050, WORD);
     host.wb_cmp(0, XGATE_XGSEM,    16'h0050, WORD);   //
     activate_thread_sw(10);
@@ -841,7 +849,7 @@ task test_inst_set;
 endtask
 
 ////////////////////////////////////////////////////////////////////////////////
-// Test instruction set
+// Test skipjack encription - test subset of instruction set on a real problem
 task test_skipjack;
   begin
     $readmemh("../../../bench/verilog/skipjack.v", p_ram.ram_8);
@@ -922,12 +930,12 @@ task reg_test_16;
     host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
 
     data_xgmctl = 16'hffff;
-    host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, H_BYTE);   //
+    host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, H_BYTE); //
     data_xgmctl = 16'h0000;
     host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
 
     data_xgmctl = 16'hffff;
-    host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, L_BYTE);   //
+    host.wb_write(0, XGATE_XGMCTL,   data_xgmctl, L_BYTE); //
     data_xgmctl = 16'h0000;
     host.wb_cmp(  0, XGATE_XGMCTL, data_xgmctl, WORD);
 
@@ -1061,6 +1069,9 @@ endtask
 ////////////////////////////////////////////////////////////////////////////////
 // check irq register bits - reset, read/write
 task reg_irq;
+  integer i, j, k;
+  reg [15:0] irq_clear;
+  reg [TB_ADDR_WIDTH-1:0] irq_ack_addr; // Address to clear irq request
   begin
     test_num = test_num + 1;
     $display("\nTEST #%d Starts at vector=%d, reg_irq", test_num, vector);
@@ -1097,83 +1108,83 @@ task reg_irq;
     repeat(4) @(posedge mstr_test_clk);
     host.wb_cmp(0, CHANNEL_XGIRQ_1,    16'h0000, WORD);
 
-    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
+    host.wb_write(0, TB_SEMPHORE, 16'h0000, WORD);
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
-    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_1,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_2,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_3,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_4,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_5,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_6,  16'h0000, WORD);
+    host.wb_write(0, IRQ_BYPS_7,  16'h0000, WORD);
     data_xgmctl = XGMCTL_XGEM | XGMCTL_XGE;
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Enable XGATE
     repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
-    channel_req[3:1] = 3'b111; //
 
-    q = 0;
-    // The Xgate test program is in an infinite loop for the test bench semaphore register to be changed
-    while (q == 0)  // Look for change in test bench semapore register
-      begin
-        host.wb_read(1, TB_SEMPHORE, q, WORD);
-      end
+    //channel_req[8:1] = 8'b1_1111_111; //  Activate the interrupt inputs
+    channel_req = {MAX_CHANNEL{1'b1}}; //  Activate the interrupt inputs
 
-    if (q != 1)
-      begin
-        $display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
-      end
+    for (i = 1; i <= MAX_CHANNEL; i = i + 1)
+    begin
+      j = i % 16;
+      k = i / 16;
+      irq_ack_addr = XGATE_XGIF_0 - (2 * k);
+      $display("Testing interrupt %d.", i);
+      q = 0;
+      // The Xgate test program is in an infinite loop looking for the test bench semaphore register to be changed
+      while (q == 0)  // Look for change in test bench semapore register
+        begin
+          host.wb_read(1, TB_SEMPHORE, q, WORD);
+        end
 
-    channel_req[1] = 1'b0; //
-    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
-    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
-    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+      if (q != i)
+        begin
+          error_count = error_count + 1;
+          $display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
+        end
 
-//    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
-//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
-    host.wb_write(1, XGATE_XGIF_0, 16'h0002, WORD);  // Clear Interrupt Flag from Xgate
-//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
+      channel_req[i] = 1'b0; //  Clear the active interrupt input
+      repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
+      host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
+      repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
 
-    q = 0;
-    // The Xgate test program is in an infinite loop for the test bench semaphore register to be changed
-    while (q == 0)  // Look for change in test bench semapore register
-      begin
-        host.wb_read(1, TB_SEMPHORE, q, WORD);
-      end
+      irq_clear = 16'h0001 << j;
+      // host.wb_cmp(0, CHANNEL_XGIRQ_0, irq_clear, WORD);  // Verify Xgate output interrupt flag set
+      // host.wb_cmp(0, XGATE_XGIF_0,    irq_clear, WORD);  // Verify Xgate interrupt status bit set
+      host.wb_write(1, irq_ack_addr, irq_clear, WORD);  // Clear Interrupt Flag from Xgate
+      // host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
+    end
 
-    if (q != 2)
-      begin
-        $display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
-      end
+  end
+endtask  // reg_irq
 
-    channel_req[2] = 1'b0; //
-    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
-    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
-    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
 
-//    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
-//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
-    host.wb_write(1, XGATE_XGIF_0, 16'h0004, WORD);  // Clear Interrupt Flag from Xgate
-//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
+////////////////////////////////////////////////////////////////////////////////
+task sync_reset_test;  // reset system
+  begin
+    test_num = test_num + 1;
+    $display("\nTEST #%d Starts at vector=%d, reg_irq", test_num, vector);
 
-    q = 0;
-    // The Xgate test program is in an infinite loop for the test bench semaphore register to be changed
-    while (q == 0)  // Look for change in test bench semapore register
-      begin
-        host.wb_read(1, TB_SEMPHORE, q, WORD);
-      end
+    // Write some registers so a change in state can be verified after reset
+    host.wb_write(1, XGATE_XGVBR, 16'h01ff, WORD);  //
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
-    if (q != 3)
-      begin
-        $display("IRQ test failure, Wrong interrupt being processed! Interrupt=%d, vector=%d", q, vector);
-      end
+    repeat(1) @(posedge mstr_test_clk);
+    sync_reset  <= 1'b1; // 
+    repeat(1) @(posedge mstr_test_clk);
+    sync_reset  <= 1'b0;
 
-    channel_req[3] = 1'b0; //
-    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
-    host.wb_write(0, TB_SEMPHORE,  16'h0000, WORD);
-    repeat(XGATE_ACCESS_DELAY+2) @(posedge mstr_test_clk);
-
-//    host.wb_cmp(0, CHANNEL_XGIRQ_0, 16'h0002, WORD);  // Verify Xgate output interrupt flag set
-//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0002, WORD);  // Verify Xgate interrupt status bit set
-    host.wb_write(1, XGATE_XGIF_0, 16'h0008, WORD);  // Clear Interrupt Flag from Xgate
-//    host.wb_cmp(0, XGATE_XGIF_0,    16'h0000, WORD);  // Verify flag cleared
+    host.wb_cmp(0, XGATE_XGVBR,    16'hfe00, WORD); // verify reset
+    host.wb_cmp(0, IRQ_BYPS_0,     16'hFFFE, WORD); // verify reset
 
   end
 endtask
 
+
+////////////////////////////////////////////////////////////////////////////////
+// End Main test program tasks
+// Begin test program helper tasks and functions
+////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
 // check RAM Read/Write from host
@@ -1218,16 +1229,15 @@ endtask
 task system_reset;  // reset system
   begin
     repeat(1) @(posedge mstr_test_clk);
-    sync_reset = 1'b1;  // Make the sync reset 1 clock cycle long
     #2;     // move the async reset away from the clock edge
     rstn = 1'b0;    // assert async reset
     #5;     // Keep the async reset pulse with less than a clock cycle
     rstn = 1'b1;    // negate async reset
     repeat(1) @(posedge mstr_test_clk);
-    sync_reset = 1'b0;
 
     $display("\nstatus: %t System Reset Task Done", $time);
     test_num = test_num + 1;
+    channel_req = 0;  // Clear all the testbench inpterrupt inputs to the xgate
 
     repeat(2) @(posedge mstr_test_clk);
   end
@@ -1255,34 +1265,6 @@ task clear_channel;
     channel_req[chan_val] = 1'b0; //
     repeat(1) @(posedge mstr_test_clk);
   end
-endtask
-
-
-////////////////////////////////////////////////////////////////////////////////
-task clear_irq_flag;
-  input [ 6:0] chan_val;
-  begin
-      $display("Clearing Channel interrupt flag #%d", chan_val);
-      if (0 < chan_val < 16)
-        host.wb_write(1, XGATE_XGIF_0, 16'hffff, WORD);
-      if (15 < chan_val < 32)
-        host.wb_write(1, XGATE_XGIF_1, 16'hffff, WORD);
-      if (31 < chan_val < 48)
-        host.wb_write(1, XGATE_XGIF_2, 16'hffff, WORD);
-      if (47 < chan_val < 64)
-        host.wb_write(1, XGATE_XGIF_3, 16'hffff, WORD);
-      if (63 < chan_val < 80)
-        host.wb_write(1, XGATE_XGIF_4, 16'hffff, WORD);
-      if (79 < chan_val < 96)
-        host.wb_write(1, XGATE_XGIF_5, 16'hffff, WORD);
-      if (95 < chan_val < 112)
-        host.wb_write(1, XGATE_XGIF_6, 16'hffff, WORD);
-      if (111 < chan_val < 128)
-        host.wb_write(1, XGATE_XGIF_7, 16'hffff, WORD);
-
-      channel_req[chan_val] = 1'b0; //
-      repeat(1) @(posedge mstr_test_clk);
-   end
 endtask
 
 
@@ -1357,6 +1339,7 @@ function [15:0] four_2_16;
     endcase
   end
 endfunction
+
 
 endmodule  // tst_bench_top
 
