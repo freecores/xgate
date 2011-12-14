@@ -198,7 +198,7 @@ _START
         ; Test Bit Field Find First One
         LDL     R5,#$01  ; R5=$0001
         LDH     R5,#$4f  ; R5=$4f01
-        BFFO    R4,R5
+        BFFO    R4,R5    ; Result in R4
         BVS     _FAIL    ; Negative Flag should be clear
         LDL     R6,#$0e  ; First one should have been in bit position 14
         SUB     R0,R6,R4
@@ -209,7 +209,7 @@ _START
         BFFO    R4,R5
         BCS     _FAIL    ; Carry should be clear
         BVS     _FAIL    ; Overflow Flag should be clear
-        SUB     R0,R0,R4 ; R4 Should be zero
+        SUB     R0,R0,R4 ; R4 Should be zero - ie. zero bit set
         BNE     _FAIL
 
        ; Test ASR instruction **************************************************
