@@ -279,6 +279,8 @@ module xgate_regs #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   always @(posedge bus_clk or negedge async_rst_b)
     if ( !async_rst_b )
       irq_bypass  <= {127{1'b1}};
+    else if (sync_reset)
+      irq_bypass  <= {127{1'b1}};
     else
       irq_bypass  <= irq_bypass_d;
 
