@@ -108,7 +108,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   integer bfi, bfii;   // Loop counter for Bit Field Insert function
 
   // State machine sequence
-  parameter [3:0]      //synopsys enum state_info
+  localparam [3:0]      //synopsys enum state_info
        IDLE    = 4'b0000,      // waiting for interrupt
        CONT    = 4'b0001,      // Instruction processing state, first state
        S_STALL = 4'b0010,      // Simple Stall while updating PC after change of flow
@@ -126,9 +126,9 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
 
   // Semaphore states
-  parameter [1:0] NO_LOCK = 2'b00,
-                  RISC_LOCK = 2'b10,
-                  HOST_LOCK = 2'b11;
+  localparam [1:0] NO_LOCK   = 2'b00,
+                   RISC_LOCK = 2'b10,
+                   HOST_LOCK = 2'b11;
 
 
   reg  [ 3:0] cpu_state;         // State register for instruction processing
@@ -141,6 +141,10 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   reg  [15:0] next_pc;           // Pseudo Register
   wire [15:0] jump_offset;       // Address offset to be added to pc on conditional branch instruction
   wire [15:0] bra_offset;        // Address offset to be added to pc on branch always instruction
+  wire        pc_carry;          // Carry out bit from pc adder
+  wire        pc_overflow;       // Next pc is out-of-range
+  wire        pc_underflow;      // Next pc is out-of-range
+  wire        pc_error;          // Next pc calculation error
   reg  [15:0] alu_result;        // Pseudo Register,
   reg  [15:0] op_code;           // Register for instruction being executed
   reg         ena_rd_low_byte;   // Pseudo Register,
@@ -211,14 +215,18 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   wire        chid_goto_idle; //
 
   // Debug states for change CHID
-  parameter [1:0] CHID_IDLE = 2'b00,
-                  CHID_TEST = 2'b10,
-                  CHID_WAIT = 2'b11;
+  localparam [1:0] CHID_IDLE = 2'b00,
+                   CHID_TEST = 2'b10,
+                   CHID_WAIT = 2'b11;
 
 
-  assign jump_offset = {{6{op_code[8]}}, op_code[8:0], 1'b0};
-  assign bra_offset  = {{5{op_code[9]}}, op_code[9:0], 1'b0};
-  assign pc_sum      = program_counter + pc_incr_mux;
+  assign jump_offset  = {{6{op_code[8]}}, op_code[8:0], 1'b0};
+  assign bra_offset   = {{5{op_code[9]}}, op_code[9:0], 1'b0};
+  assign pc_overflow  = pc_carry & !pc_incr_mux[15];
+  assign pc_underflow = !pc_carry & pc_incr_mux[15];
+  assign pc_error     = pc_overflow || pc_underflow;
+
+  assign {pc_carry, pc_sum} = program_counter + pc_incr_mux;
 
   assign xgate_address = data_access ? data_address : program_counter;
 
@@ -240,7 +248,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
 
   // Decode register select for RD and RS
   always @*
-    begin
       case (op_code[10:8]) // synopsys parallel_case
         3'b001 : rd_data = xgr1;
         3'b010 : rd_data = xgr2;
@@ -251,7 +258,6 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
         3'b111 : rd_data = xgr7;
         default : rd_data = 16'h0;  // XGR0 is always Zero
       endcase
-    end
 
   assign wrt_reg_sel = (cpu_state == BOOT_3) ? 3'b001 :
                        (sel_rd_field ? op_code[10:8] : op_code[4:2]);
@@ -312,7 +318,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       software_error <= 1'b0;
     else
-      software_error <= addr_error || op_code_error ||
+      software_error <= addr_error || op_code_error || pc_error ||
                         (brk_set_dbg && brk_irq_ena) || (software_error && !xgsweif_c);
 
   assign xg_sw_irq = software_error && xgie;
@@ -338,7 +344,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
       end
     else
       begin
-        debug_active  <= !xgdbg_clear && (cmd_dbg ||
+        debug_active  <= !xgdbg_clear && (cmd_dbg || pc_error ||
                          brk_set_dbg || op_code_error || debug_active);
         debug_edge    <= debug_active;
       end
@@ -361,7 +367,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
     if ( !async_rst_b )
       cpu_state  <= IDLE;
     else
-      cpu_state  <= (mem_req_ack || stm_auto_advance) ? next_cpu_state : cpu_state;
+      cpu_state  <= (mem_req_ack || stm_auto_advance || ~xge) ? next_cpu_state : cpu_state;
 
   //  CPU Instruction Register
   always @(posedge risc_clk or negedge async_rst_b)
@@ -459,7 +465,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
          j = j + 1;
         end
       if (clear_xgif_0)
-        xgif_d[15: 1]  = ~clear_xgif_data & xgif_status[15: 1];
+        xgif_d[15: 1]  = ~clear_xgif_data[15:1] & xgif_status[15:1];
       if (clear_xgif_1)
         xgif_d[31:16]  = ~clear_xgif_data & xgif_status[31:16];
       if (clear_xgif_2)
@@ -2123,14 +2129,14 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   // Three to Eight line decoder
   always @*
     case (semaph_risc)  // synopsys parallel_case
-      4'h0 : semap_risc_bit = 8'b0000_0001;
-      4'h1 : semap_risc_bit = 8'b0000_0010;
-      4'h2 : semap_risc_bit = 8'b0000_0100;
-      4'h3 : semap_risc_bit = 8'b0000_1000;
-      4'h4 : semap_risc_bit = 8'b0001_0000;
-      4'h5 : semap_risc_bit = 8'b0010_0000;
-      4'h6 : semap_risc_bit = 8'b0100_0000;
-      4'h7 : semap_risc_bit = 8'b1000_0000;
+      3'h0 : semap_risc_bit = 8'b0000_0001;
+      3'h1 : semap_risc_bit = 8'b0000_0010;
+      3'h2 : semap_risc_bit = 8'b0000_0100;
+      3'h3 : semap_risc_bit = 8'b0000_1000;
+      3'h4 : semap_risc_bit = 8'b0001_0000;
+      3'h5 : semap_risc_bit = 8'b0010_0000;
+      3'h6 : semap_risc_bit = 8'b0100_0000;
+      3'h7 : semap_risc_bit = 8'b1000_0000;
     endcase
 
   assign semaph_stat = |risc_semap;
@@ -2393,7 +2399,6 @@ module semaphore_bit #(parameter NO_LOCK   = 2'b00,
       semap_state <= next_semap_state;
 
   always @*
-    begin
       case(semap_state)
         NO_LOCK:
           begin
@@ -2421,8 +2426,6 @@ module semaphore_bit #(parameter NO_LOCK   = 2'b00,
         default:
           next_semap_state = NO_LOCK;
       endcase
-    end
 
 endmodule  // semaphore_bit
-
 
