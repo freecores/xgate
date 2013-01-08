@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //
-//  Computer Operating Properly - XGATE interrupt encoder
+//  XGATE Coprocessor - XGATE interrupt encoder
 //
 //  Author: Bob Hayes
 //          rehayes@opencores.org
@@ -49,13 +49,13 @@ module xgate_irq_encode #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt
   input      [MAX_CHANNEL:1] xgif_status  // Interrupt outputs from RISC core
 );
 
+  integer i;  // Loop Counter for array index
   wire [MAX_CHANNEL:1] chan_ena_gate;  // Ouptut of channel enable gating
 
   // Pass non-bypassed interrupt inputs to XGATE RISC
   assign chan_ena_gate = ~chan_bypass & chan_req_i;
 
   // Set int_reg to the index of the index of the lowest chan_req_i input that is active
-  integer i = 0;
   always @(chan_ena_gate)
     begin
       int_req = 0;

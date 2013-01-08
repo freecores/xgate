@@ -51,7 +51,6 @@ module xgate_wbs_bus #(parameter ARST_LVL = 1'b0,    // asynchronous reset level
   input                    wbs_rst_i,     // synchronous active high reset
   input                    arst_i,        // asynchronous reset
   input             [ 6:1] wbs_adr_i,     // lower address bits
-  input       [DWIDTH-1:0] wbs_dat_i,     // databus input
   input                    wbs_we_i,      // write enable input
   input                    wbs_stb_i,     // stobe/core select signal
   input                    wbs_cyc_i,     // valid bus cycle input

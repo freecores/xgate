@@ -67,7 +67,7 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   input     [DWIDTH-1:0] wbm_dat_i,     // databus input
   input                  wbm_ack_i,     // bus cycle acknowledge input
   // XGATE IO Signals
-  output          [ 7:0] xgswt,         // XGATE Software Trigger Register
+  output          [ 7:0] xgswt,            // XGATE Software Trigger Register
   output                 xg_sw_irq,        // Xgate Software interrupt
   output [MAX_CHANNEL:1] xgif,             // XGATE Interrupt Flag to Host
   input  [MAX_CHANNEL:1] chan_req_i,       // XGATE Interrupt request
@@ -162,6 +162,8 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
   wire [ 7:0] host_semap;       // Semaphore status for host
   wire        write_mem_strb_l; // Strobe for writing low data byte
   wire        write_mem_strb_h; // Strobe for writing high data bye
+  wire        sync_reset;
+  wire        async_rst_b;
 
   // ---------------------------------------------------------------------------
   // Wishbone Slave Bus interface
@@ -176,7 +178,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .wbs_rst_i( wbs_rst_i ),
     .arst_i( arst_i ),
     .wbs_adr_i( wbs_adr_i ),
-    .wbs_dat_i( wbs_dat_i ),
     .wbs_we_i( wbs_we_i ),
     .wbs_stb_i( wbs_stb_i ),
     .wbs_cyc_i( wbs_cyc_i ),
@@ -395,9 +396,6 @@ module xgate_top #(parameter ARST_LVL = 1'b0,      // asynchronous reset level
     .wbm_adr_o( wbm_adr_o ),
     .wbm_dat_i( wbm_dat_i ),
     .wbm_ack_i( wbm_ack_i ),
-    .wbs_clk_i( wbs_clk_i ),
-    .wbs_rst_i( wbs_rst_i ),
-    .arst_i( arst_i ),
  // XGATE Control Signals
     .risc_clk( risc_clk ),
     .async_rst_b( async_rst_b ),
