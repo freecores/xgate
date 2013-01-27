@@ -477,12 +477,15 @@ initial
     sync_reset  <= 1'b0; // Don't do sync reset
     #5;                  // Keep the async reset pulse with less than a clock cycle
     rstn = 1'b1;         // negate async reset
-    channel_req = 0;    //
+    channel_req = 0;     //
     repeat(1) @(posedge mstr_test_clk);
 
     $display("\nstatus at time: %t done reset", $time);
 
+    pc_rollover;
+
     test_skipjack;
+    wrap_up;
 
     test_inst_set;
 
@@ -497,7 +500,7 @@ initial
     reg_irq;
 
     sync_reset_test;
-
+    
     // host_ram;
 
     // End testing
@@ -761,6 +764,11 @@ task test_inst_set;
     $display("\nTEST #%d Starts at vector=%d, test_inst_set", test_num, vector);
     repeat(1) @(posedge mstr_test_clk);
 
+    // Enable XGATE SW interrupt for error detection of bad instructions
+    //   There should not be any!
+    data_xgmctl = XGMCTL_XGIEM | XGMCTL_XGIE;
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);
+
     // Enable interrupts to RISC
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
 
@@ -842,8 +850,56 @@ task test_inst_set;
     read_ram_cmp(16'h0080, 16'h9966);
     read_ram_cmp(16'h0086, 16'h7533);
 
+    // All the tested instructions should have been legal
+    if (xg_sw_irq)
+      begin
+        error_count = error_count + 1;
+        $display("SW IRQ active after instruction test, vector=%d", vector);
+        clear_sw_irq;  // Don't let error state propogate into following tests
+      end
+
     data_xgmctl = 16'hff00;
     host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Disable XGATE
+
+  end
+endtask
+
+////////////////////////////////////////////////////////////////////////////////
+// check pc rollover error detection
+task pc_rollover;
+  integer i, j, k;
+  begin
+    $readmemh("../../../bench/verilog/pc_rollover.v", p_ram.ram_8);
+    test_num = test_num + 1;
+    $display("\nTEST #%d Starts at vector=%d, pc_rollover", test_num, vector);
+
+    data_xgmctl = XGMCTL_XGIEM | XGMCTL_XGIE;
+    host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);   // Enable XGATE SW interrupt for error detection
+
+    host.wb_write(0, XGATE_XGVBR,  16'h8800, WORD); // set vector table address to match test code
+    repeat(4) @(posedge mstr_test_clk);
+
+    // Enable interrupts to RISC
+    host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
+
+    // Test #1 - single step past the end of memory space
+    // Test #2 - branch past the end of memory space
+    // Test #3 - branch past the begining of memory space
+    for (i = 1; i <= 3; i = i + 1)
+      begin
+        $display("  -- Subtest %0d Starts at vector = %0d, pc over/underrun", i, vector);
+        activate_thread_sw(i);
+    
+        wait_sw_irq_set(8'd100);
+        clear_sw_irq;
+        channel_req[i] = 1'b0; //
+        repeat(1) @(posedge mstr_test_clk);
+        host.wb_cmp(0, XGATE_XGMCTL,   16'h00A1, WORD); // verify Debug mode
+        data_xgmctl = XGMCTL_XGEM | XGMCTL_XGDBGM;      // Clear Debug mode and XGATE Enable
+        host.wb_write(0, XGATE_XGMCTL, data_xgmctl, WORD);
+        repeat(14) @(posedge mstr_test_clk);
+      end
+
 
   end
 endtask
@@ -858,6 +914,9 @@ task test_skipjack;
     repeat(1) @(posedge mstr_test_clk);
 
     host.wb_write(0, DEBUG_CNTRL,  16'hFFFF, WORD);
+
+    host.wb_write(0, XGATE_XGVBR,  16'hFE00, WORD); // set vector table address to match test code
+    repeat(4) @(posedge mstr_test_clk);
 
     // Enable interrupts to RISC
     host.wb_write(0, IRQ_BYPS_0,  16'h0000, WORD);
@@ -1210,6 +1269,45 @@ task wait_irq_set;
     while(!xgif[chan_val])
       @(posedge mstr_test_clk); // poll it until it is set
     $display("XGATE Interrupt Request #%d set detected at vector =%d", chan_val, vector);
+  end
+endtask
+
+////////////////////////////////////////////////////////////////////////////////
+// Poll for XGATE SW Interrupt set
+task wait_sw_irq_set;
+  input [ 7:0] wait_timeout;
+  reg [7:0]timeout_count;
+  begin
+    timeout_count = 0;
+    while(!xg_sw_irq & (timeout_count <= wait_timeout))
+      begin
+        @(posedge mstr_test_clk); // poll it until it is set
+        timeout_count = timeout_count + 1;
+      end
+
+    if (timeout_count >= wait_timeout)
+      begin
+        error_count = error_count + 1;
+        $display("SW IRQ not detected in the alloted time, vector=%d", vector);
+      end
+    else
+      $display("XGATE SW Interrupt Request set detected at vector =%d", vector);
+
+  end
+endtask
+
+////////////////////////////////////////////////////////////////////////////////
+// Clear XGATE SW Interrupt
+task clear_sw_irq;
+  begin
+    host.wb_write(0, XGATE_XGMCTL, 16'h0202, WORD);   // Clear SW interrupt
+    repeat(4) @(posedge mstr_test_clk);
+    if (xg_sw_irq)
+      begin
+        error_count = error_count + 1;
+        $display("SW IRQ not cleared after command write, vector=%d", vector);
+      end
+
   end
 endtask
 
