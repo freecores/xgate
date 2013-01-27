@@ -224,7 +224,7 @@ module xgate_risc #(parameter MAX_CHANNEL = 127)    // Max XGATE Interrupt Chann
   assign bra_offset   = {{5{op_code[9]}}, op_code[9:0], 1'b0};
   assign pc_overflow  = pc_carry & !pc_incr_mux[15];
   assign pc_underflow = !pc_carry & pc_incr_mux[15];
-  assign pc_error     = pc_overflow || pc_underflow;
+  assign pc_error     = (pc_overflow || pc_underflow) & (cpu_state != BOOT_2);
 
   assign {pc_carry, pc_sum} = program_counter + pc_incr_mux;
 
